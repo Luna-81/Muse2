@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import com.blue.hush.audio.AmbientAudioEngine
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionResultClassifier
+import com.blue.hush.processing.SessionScoreCalculator
 import com.blue.hush.processing.SignalProcessor
 import com.blue.hush.replay.MuseReplaySource
 import com.blue.hush.session.MusicTrack
@@ -239,7 +240,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         val id = sessionId ?: return
         processor.setCollecting(false)
         val elapsedSeconds = (clock.elapsedMillis(SystemClock.elapsedRealtime()) / 1_000L).toInt()
-        val result = SessionResultClassifier.classify(samples.all)
+        val completedSamples = samples.all
+        val result = SessionResultClassifier.classify(completedSamples)
         database.finishSession(id, System.currentTimeMillis(), elapsedSeconds, result)
         clock.pause(SystemClock.elapsedRealtime())
         publish(
@@ -248,6 +250,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                 elapsedSeconds = elapsedSeconds,
                 dataGap = false,
                 result = result,
+                scores = SessionScoreCalculator.calculate(completedSamples),
+                trendSamples = completedSamples,
                 message = result.description,
             ),
         )

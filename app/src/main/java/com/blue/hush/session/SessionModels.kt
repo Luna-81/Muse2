@@ -68,4 +68,5 @@ data class SessionState(
     val calibrationSeconds: Int = 0,
     val calmnessSampleCount: Int = 0,
     val trendSamples: List<StateSample> = emptyList(),
+    val scores: SessionScores = SessionScores(),
 )

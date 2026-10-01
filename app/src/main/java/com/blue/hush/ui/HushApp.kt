@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.blue.hush.muse.MuseDeviceManager
+import com.blue.hush.processing.SessionScoreCalculator
 import com.blue.hush.replay.ReplayCursor
 import com.blue.hush.session.*
 import com.blue.hush.ui.theme.*
@@ -53,7 +54,7 @@ data class ConnectionUiState(
 }
 
 @Composable
-private fun Page(title: String, onBack: (() -> Unit)? = null, content: @Composable () -> Unit) {
+internal fun Page(title: String, onBack: (() -> Unit)? = null, content: @Composable () -> Unit) {
     if (onBack != null) BackHandler(onBack = onBack)
     Scaffold(topBar = { TopAppBar(title = { Text(title, style = MaterialTheme.typography.headlineMedium) },
         navigationIcon = { if (onBack != null) TextButton(onClick = onBack) { Text("Back") } },
@@ -79,6 +80,8 @@ fun HushApp(
 ) {
     var deviceSheet by rememberSaveable { mutableStateOf(false) }
     var musicSheet by rememberSaveable { mutableStateOf(false) }
+    // Kept above route returns so details and configuration changes preserve dismissal.
+    var resultsSheet by rememberSaveable(sessionState.sessionId) { mutableStateOf(true) }
     val galaxyMotion = rememberGalaxyMotion()
     if (sessionState.phase in listOf(SessionPhase.CONNECTING, SessionPhase.RUNNING, SessionPhase.PAUSED)) {
         MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion)
@@ -89,19 +92,11 @@ fun HushApp(
         return
     }
     if (sessionState.phase == SessionPhase.FINISHED) {
-        Page("Session complete", onStartNewSession) {
-            LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
-                item { Text("Your Mindprint", style = MaterialTheme.typography.headlineMedium) }
-                item { ParticlePanel(sessionState.latestSample, sessionState.latestSample?.valid != true, galaxyMotion) }
-                item { HushPanel(Modifier.fillMaxWidth()) {
-                    Text(formatDuration(sessionState.elapsedSeconds), style = MaterialTheme.typography.displayLarge)
-                    Text(if (sessionState.calmnessSampleCount >= 2) sessionState.result?.title ?: "Session saved" else "Not enough signal", style = MaterialTheme.typography.titleLarge)
-                    if (sessionState.calmnessSampleCount >= 2) sessionState.result?.let { Text(it.description, color = HushColors.Muted) }
-                } }
-                item { PrimaryAction("View session", { history.firstOrNull { it.id == sessionState.sessionId }?.let(onOpenDetail) }, enabled = history.any { it.id == sessionState.sessionId }) }
-                item { TextButton(onClick = onStartNewSession, modifier = Modifier.fillMaxWidth()) { Text("Back to home") } }
-            }
-        }
+        val summary = history.firstOrNull { it.id == sessionState.sessionId }
+        CompletionScreen(sessionState, galaxyMotion, resultsSheet,
+            onShowResults = { resultsSheet = true }, onDismissResults = { resultsSheet = false },
+            onBack = onStartNewSession, detailAvailable = summary != null,
+            onDetails = { summary?.let { resultsSheet = false; onOpenDetail(it) } })
         return
     }
     Scaffold(containerColor = HushColors.Background, bottomBar = {
@@ -241,6 +236,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
 @Composable
 internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
     val cursor = remember(samples) { ReplayCursor(samples) }
+    val scores = remember(samples) { SessionScoreCalculator.calculate(samples) }
     val sample = cursor.sampleAt(progress)
     Page(if (summary.isBundledSimulation) "Saved simulation" else "Session details", onBack) {
         LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
@@ -249,6 +245,10 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
                 Text(formatDuration(summary.actualSeconds), style = MaterialTheme.typography.displayLarge)
             }
             item { ParticlePanel(sample, sample?.valid != true) }
+            item { HushPanel(Modifier.fillMaxWidth()) {
+                SessionScoreSummary(summary.actualSeconds, scores)
+                Text("Experimental scores, not a validated measure of meditation quality.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+            } }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Replay", style = MaterialTheme.typography.titleMedium)
                 Slider(value = progress, onValueChange = onProgress, modifier = Modifier.semantics { contentDescription = "Session replay" })

@@ -35,10 +35,15 @@ class SimulationFlowTest {
             compose.onNodeWithText("Finish").performClick()
             compose.onNodeWithText("End session").performClick()
             compose.waitUntil(5000) { SessionRuntime.current.phase == SessionPhase.FINISHED }
-            compose.onNodeWithText("Session complete").assertIsDisplayed()
-            compose.onNodeWithText("View session").performScrollTo().performClick()
+            compose.onNodeWithText("More Details").performScrollTo().performClick()
             compose.onNodeWithText("Session details").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Session replay").performScrollTo().assertIsDisplayed()
+            compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasContentDescription("Session replay"))
+            compose.onNodeWithContentDescription("Session replay").assertIsDisplayed()
+            androidx.test.espresso.Espresso.pressBack()
+            compose.onNodeWithText("Finished").assertIsDisplayed()
+            compose.onNodeWithText("More Details").assertDoesNotExist()
+            compose.onNodeWithText("Results").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("Overall grade: unavailable").assertIsDisplayed()
         } finally {
             if (SessionRuntime.current.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
                 compose.runOnUiThread { MeditationService.command(compose.activity, MeditationService.ACTION_FINISH) }

@@ -11,12 +11,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import com.blue.hush.session.StateSample
 import com.blue.hush.ui.theme.HushColors
 
 @Composable
 internal fun ParticlePanel(
     sample: StateSample?, dataGap: Boolean, motion: GalaxyMotion? = null,
+    maxHeight: Dp = 440.dp,
 ) {
     // Preserve the historical band mapping only for rows predating composite processing.
     val recordedSample = if (sample?.algorithmVersion == 0) sample.copy(eegBandsAvailable = sample.valid) else sample
@@ -24,7 +26,7 @@ internal fun ParticlePanel(
         GalaxyMotion().apply { showRecordedSample(recordedSample) }
     }
     Card(shape = com.blue.hush.ui.theme.HushShapes.Panel) {
-        Box(Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).aspectRatio(1f), contentAlignment = Alignment.Center) {
             GalaxyParticleField(recordedSample, dataGap, paused = true,
                 modifier = Modifier.fillMaxSize(), state = visual)
             if (dataGap || galaxyAgitation(recordedSample) == null) Text("Data gap", color = MaterialTheme.colorScheme.onSurfaceVariant)
