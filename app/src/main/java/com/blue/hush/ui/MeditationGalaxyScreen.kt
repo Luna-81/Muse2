@@ -35,6 +35,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +45,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -63,6 +67,8 @@ internal fun MeditationGalaxyScreen(
 ) {
     var volumeExpanded by rememberSaveable { mutableStateOf(false) }
     var confirmFinish by rememberSaveable { mutableStateOf(false) }
+    var controlsHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     val paused = state.phase == SessionPhase.PAUSED
     // The service can retain its last valid sample during a gap. Reject stale
     // seconds even if an intermediate connection update clears dataGap.
@@ -95,8 +101,12 @@ internal fun MeditationGalaxyScreen(
     )
     BoxWithConstraints(Modifier.fillMaxSize().background(HushColors.Background).safeDrawingPadding()) {
         val landscape = maxWidth > maxHeight
+        val controlsHeight = with(density) { controlsHeightPx.toDp() }
+        // Reserve the measured control area so the added chart does not cover portrait particles.
+        val galaxyModifier = if (landscape) Modifier.fillMaxHeight().fillMaxWidth(0.58f).align(Alignment.CenterStart)
+            else Modifier.fillMaxWidth().height((maxHeight - controlsHeight).coerceAtLeast(76.dp)).padding(top = 76.dp).align(Alignment.TopCenter)
         GalaxyParticleField(state.latestSample, signalMissing, paused,
-            Modifier.fillMaxHeight().fillMaxWidth(if (landscape) 0.58f else 1f).align(Alignment.CenterStart), state = galaxyMotion)
+            galaxyModifier, state = galaxyMotion)
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = HushSpace.xl, vertical = HushSpace.md)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -113,6 +123,7 @@ internal fun MeditationGalaxyScreen(
                         paused -> "Paused"
                         state.phase == SessionPhase.CONNECTING -> "Connecting…"
                         !state.connected -> "Reconnecting…"
+                        state.calibrationSeconds < 10 -> "Calibrating…"
                         signalMissing -> "Waiting for EEG…"
                         else -> null
                     }
@@ -142,11 +153,13 @@ internal fun MeditationGalaxyScreen(
         }
             Column(
                 Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
+                    .onSizeChanged { controlsHeightPx = it.height }
                     .widthIn(max = if (landscape) 280.dp else 420.dp).fillMaxWidth()
                     .heightIn(max = (maxHeight - 76.dp).coerceAtLeast(100.dp))
                     .verticalScroll(rememberScrollState()).padding(horizontal = HushSpace.xl, vertical = HushSpace.md),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.sm), horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                CalmnessChart(state.trendSamples, state.elapsedSeconds, calibrating = state.calibrationSeconds < 10)
                 Text(formatDuration(state.plannedSeconds - state.elapsedSeconds), style = MaterialTheme.typography.displayLarge, color = HushColors.Text)
                 Text("Time remaining", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
                 if (volumeExpanded) {

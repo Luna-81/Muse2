@@ -52,7 +52,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             if (currentState.phase == SessionPhase.RUNNING) {
                 val elapsedSeconds = (clock.elapsedMillis(SystemClock.elapsedRealtime()) / 1_000L).toInt()
                 if (elapsedSeconds > samples.lastSecond) {
-                    val sample = if (simulationMode) replaySampleAt(elapsedSeconds) else processor.nextSample(elapsedSeconds)
+                    val sample = if (simulationMode) replaySampleAt(elapsedSeconds) else processor.nextSample(elapsedSeconds, SystemClock.elapsedRealtime())
                     val newSamples = samples.record(sample)
                     sessionId?.let { id -> newSamples.forEach { database.insertSample(id, it) } }
                     publish(
@@ -61,6 +61,9 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                             dataGap = !currentState.connected || !sample.valid,
                             sampleCount = samples.count,
                             validSampleCount = samples.validCount,
+                            calmnessSampleCount = samples.calmnessCount,
+                            calibrationSeconds = if (simulationMode) replaySamples.take(elapsedSeconds).count { it.eegBandsAvailable }.coerceAtMost(10) else processor.calibrationSeconds,
+                            trendSamples = samples.all,
                             // Keep the last valid visual state visible while a signal gap is shown.
                             latestSample = samples.visualSample,
                             message = if (sample.valid) null else "Not enough valid sensor data for this second",
@@ -134,11 +137,13 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         if (currentState.phase == SessionPhase.FINISHED || sessionId == null) return
         when (current) {
             ConnectionState.CONNECTED -> {
+                processor.setCollecting(currentState.phase == SessionPhase.RUNNING)
                 isConnecting = false
                 museManager?.stopScanning()
                 publish(currentState.copy(connected = true, deviceName = device.name, dataGap = false, message = null))
             }
             ConnectionState.DISCONNECTED -> {
+                processor.setCollecting(false)
                 isConnecting = false
                 publish(
                     currentState.copy(
@@ -156,10 +161,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     }
 
     override fun onDataPacket(packet: MuseDeviceManager.MusePacket) {
-        processor.accept(packet.type, packet.values)
+        processor.accept(packet.type, packet.values, packet.receivedAtMillis)
     }
-
-    override fun onArtifact(packet: MuseDeviceManager.MuseArtifact) = Unit
 
     private fun startSession(intent: Intent) {
         if (sessionId != null) return
@@ -182,6 +185,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         currentVolume = intent.getFloatExtra(EXTRA_VOLUME, 0.7f).coerceIn(0f, 1f)
         sessionId = database.insertSession(System.currentTimeMillis(), plannedSeconds, selectedTrack)
         samples.clear()
+        processor.reset()
+        processor.setCollecting(false)
         clock.start(SystemClock.elapsedRealtime())
         audioEngine = AmbientAudioEngine().also {
             it.setVolume(currentVolume)
@@ -212,7 +217,9 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private fun pauseSession() {
         if (currentState.phase != SessionPhase.RUNNING) return
         clock.pause(SystemClock.elapsedRealtime())
+        processor.setCollecting(false)
         audioEngine?.pause()
+        handler.removeCallbacks(tick)
         publish(currentState.copy(phase = SessionPhase.PAUSED, message = "Paused; timing and collection are temporarily stopped"))
         updateNotification()
     }
@@ -220,14 +227,17 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private fun resumeSession() {
         if (currentState.phase != SessionPhase.PAUSED) return
         clock.resume(SystemClock.elapsedRealtime())
+        processor.setCollecting(currentState.connected)
         audioEngine?.resume()
         publish(currentState.copy(phase = SessionPhase.RUNNING, message = null))
+        handler.removeCallbacks(tick)
         handler.post(tick)
         updateNotification()
     }
 
     private fun finishSession() {
         val id = sessionId ?: return
+        processor.setCollecting(false)
         val elapsedSeconds = (clock.elapsedMillis(SystemClock.elapsedRealtime()) / 1_000L).toInt()
         val result = SessionResultClassifier.classify(samples.all)
         database.finishSession(id, System.currentTimeMillis(), elapsedSeconds, result)

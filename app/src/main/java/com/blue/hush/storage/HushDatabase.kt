@@ -33,6 +33,9 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                 theta REAL,
                 beta REAL,
                 stillness REAL,
+                heart_rate_bpm REAL,
+                calmness REAL,
+                algorithm_version INTEGER NOT NULL DEFAULT 0,
                 valid INTEGER NOT NULL,
                 FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )""".trimIndent(),
@@ -43,6 +46,11 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         // Version two recorded imports permanently; bundled history is now restored on startup.
         if (oldVersion < 3) db.execSQL("DROP TABLE IF EXISTS imported_sessions")
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE samples ADD COLUMN heart_rate_bpm REAL")
+            db.execSQL("ALTER TABLE samples ADD COLUMN calmness REAL")
+            db.execSQL("ALTER TABLE samples ADD COLUMN algorithm_version INTEGER NOT NULL DEFAULT 0")
+        }
     }
 
     fun deleteSession(sessionId: Long) {
@@ -98,6 +106,12 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                 }
                 db.insertOrThrow("sessions", null, values)
                 samples.forEach { insertSample(db, BUNDLED_SIMULATION_SESSION_ID, it) }
+            } else if (samples.any { it.algorithmVersion > 0 } && !hasCompositeSamples(BUNDLED_SIMULATION_SESSION_ID)) {
+                // Only the reserved CSV session is reproducible; never synthesize old user scores.
+                db.delete("samples", "session_id = ?", arrayOf(BUNDLED_SIMULATION_SESSION_ID.toString()))
+                samples.forEach { insertSample(db, BUNDLED_SIMULATION_SESSION_ID, it) }
+                val result = ContentValues().apply { put("result", SessionResultClassifier.classify(samples).name) }
+                db.update("sessions", result, "id = ?", arrayOf(BUNDLED_SIMULATION_SESSION_ID.toString()))
             }
             db.setTransactionSuccessful()
         } finally {
@@ -113,6 +127,9 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
             sample.theta?.let { put("theta", it) } ?: putNull("theta")
             sample.beta?.let { put("beta", it) } ?: putNull("beta")
             sample.stillness?.let { put("stillness", it) } ?: putNull("stillness")
+            sample.heartRateBpm?.let { put("heart_rate_bpm", it) } ?: putNull("heart_rate_bpm")
+            sample.calmness?.let { put("calmness", it) } ?: putNull("calmness")
+            put("algorithm_version", sample.algorithmVersion)
             put("valid", if (sample.valid) 1 else 0)
         }
         db.insertOrThrow("samples", null, values)
@@ -152,6 +169,7 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                         result = runCatching { ResultLabel.valueOf(storedResult) }.getOrDefault(ResultLabel.STEADY),
                         sampleCount = countSamples(id, validOnly = false),
                         validSampleCount = countSamples(id, validOnly = true),
+                        resultSampleCount = if (hasCompositeSamples(id)) countCalmnessSamples(id) else countSamples(id, validOnly = true),
                     ),
                 )
             }
@@ -160,7 +178,7 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     fun loadSamples(sessionId: Long): List<StateSample> = readableDatabase.query(
         "samples",
-        arrayOf("elapsed_seconds", "alpha", "theta", "beta", "stillness", "valid"),
+        arrayOf("elapsed_seconds", "alpha", "theta", "beta", "stillness", "valid", "heart_rate_bpm", "calmness", "algorithm_version"),
         "session_id = ?",
         arrayOf(sessionId.toString()),
         null,
@@ -177,11 +195,23 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                         beta = cursor.getDoubleOrNull(3),
                         stillness = cursor.getDoubleOrNull(4),
                         valid = cursor.getInt(5) == 1,
+                        eegBandsAvailable = cursor.getInt(8) > 0 && cursor.getInt(5) == 1 && (1..3).all { !cursor.isNull(it) },
+                        heartRateBpm = cursor.getDoubleOrNull(6),
+                        calmness = cursor.getDoubleOrNull(7),
+                        algorithmVersion = cursor.getInt(8),
                     ),
                 )
             }
         }
     }
+
+    private fun hasCompositeSamples(sessionId: Long): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM samples WHERE session_id = ? AND algorithm_version > 0 LIMIT 1", arrayOf(sessionId.toString()),
+    ).use { it.moveToFirst() }
+
+    private fun countCalmnessSamples(sessionId: Long): Int = readableDatabase.rawQuery(
+        "SELECT COUNT(*) FROM samples WHERE session_id = ? AND valid = 1 AND calmness IS NOT NULL", arrayOf(sessionId.toString()),
+    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     private fun countSamples(sessionId: Long, validOnly: Boolean): Int {
         val selection = if (validOnly) "session_id = ? AND valid = 1" else "session_id = ?"
@@ -203,6 +233,6 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     private companion object {
         const val DATABASE_NAME = "hush.db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
     }
 }

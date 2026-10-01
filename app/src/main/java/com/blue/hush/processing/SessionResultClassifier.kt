@@ -6,14 +6,15 @@ import kotlin.math.abs
 
 object SessionResultClassifier {
     fun classify(samples: List<StateSample>): ResultLabel {
-        val valid = samples.filter { it.valid }
-        val stillness = valid.mapNotNull { it.stillness }
+        val composite = samples.any { it.algorithmVersion > 0 }
+        val valid = samples.filter { it.valid && (if (composite) it.calmness else it.stillness)?.isFinite() == true }
+        val stillness = valid.mapNotNull { if (composite) it.calmness else it.stillness }
         if (stillness.isEmpty()) return ResultLabel.STEADY
         val mean = stillness.average()
         val variance = stillness.map { (it - mean) * (it - mean) }.average()
         val quarterSize = (valid.size / 4).coerceAtLeast(1)
-        val first = valid.take(quarterSize).mapNotNull { it.stillness }.averageOrNull() ?: mean
-        val last = valid.takeLast(quarterSize).mapNotNull { it.stillness }.averageOrNull() ?: mean
+        val first = stillness.take(quarterSize).averageOrNull() ?: mean
+        val last = stillness.takeLast(quarterSize).averageOrNull() ?: mean
 
         return when {
             last - first >= 0.08 -> ResultLabel.SETTLING

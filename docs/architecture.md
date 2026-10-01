@@ -7,9 +7,9 @@
 ## Live samples
 
 1. `MuseDeviceManager` adapts LibMuse callbacks. LibMuse may call from worker threads.
-2. `SignalProcessor` accumulates sensor packets and emits a smoothed `StateSample` when the service ticks at a new elapsed second. A second with no sensor callback is invalid; a second with some sensor data can be valid even if EEG bands are unavailable. The separate live-only `eegBandsAvailable` flag prevents default band values from driving galaxy motion.
+2. `SignalProcessor` aggregates finite, measured EEG bands, dynamic acceleration, and estimated PPG heart rate into one `StateSample` per second. Missing fields remain null. Sensor activity (`valid`) is separate from EEG availability and composite availability (`calmness`). `CalmnessEstimator` owns personal calibration and fusion; `HeartRateEstimator` owns a bounded PPG window. Neither processing class uses Android APIs.
 3. `SessionSamples` retains the continuous second-by-second sequence, valid count, and last valid sample used for the visual during a gap. If a service tick is delayed across several seconds, it inserts invalid samples for those skipped seconds. The service writes the new rows to `HushDatabase` and publishes the latest state through `SessionRuntime`.
-4. At finish, `SessionResultClassifier` consumes the recorded sequence. History and replay read the saved, per-second samples; raw packets are not persisted.
+4. At finish, `SessionResultClassifier` uses finite composite values for new sessions; fewer than two composite values produce no displayed assessment. Legacy sessions retain their original classifications. The service publishes a trend snapshot only when new seconds are recorded. History and replay read stored per-second values; raw packets are not persisted.
 
 The service uses monotonic elapsed time for timing and checks it every 250 ms while running. A long scheduling delay cannot reconstruct missing sensor windows, so skipped seconds remain explicit data gaps. Long-session timing and collection still require physical-device validation.
 
@@ -28,3 +28,19 @@ The UI consumes processed `SessionState` and `StateSample` values. `GalaxyPartic
 ## Validation boundary
 
 `./gradlew.bat test` covers the JVM processing, replay, session-sample, auto-connect, and deterministic-motion tests. Compose and service integration checks run through `:app:connectedDebugAndroidTest` on a configured device. Neither automated suite proves Muse Bluetooth reliability, long-session timing, background reconnection, audio behavior under lock screen, or frame pacing; those require a physical Android device and Muse 2.
+
+## Demo signal fusion
+
+The first 10 valid EEG seconds calibrate the session while its timer continues. EEG uses `log((alpha + theta + 0.000001) / (beta + 0.000001))`, a median baseline, and `max(1.4826 * MAD, 0.15)` as its sigmoid scale. Finite 0-1 values are required, with explicitly bad contact channels excluded. Missing contact-quality flags do not prevent the demo from using finite bands; this fallback is not proof of signal quality.
+
+Acceleration removes a low-pass gravity estimate (one-second time constant), then maps per-second dynamic RMS to `exp(-RMS / 0.05g)`. PPG reads simultaneous IR/Red channels, uses an eight-second nominal-64Hz window with 0.7-3Hz filtering and refractory peak detection, and rejects flat, inconsistent, stale, explicitly poor-quality, or implausibly sampled windows. Demo BPM support is 40-180. Heart baseline is the first 10 valid BPM seconds; its component is `clamp(0.5 + (baselineBpm - bpm) / 20, 0, 1)`. It can join after EEG calibration, without blocking the session. No HRV is calculated.
+
+Composite weights are EEG 0.60, motion 0.25, and heart 0.15, renormalized over available components. EEG is required. The composite is smoothed with coefficient 0.2 per valid second; galaxy agitation is `1 - calmness`. These thresholds and weights are engineering heuristics for the demo, not a validated meditation-quality or medical assessment. No blink, jaw-clench, or headband-wear artifact events enter processing.
+
+Pause and disconnect reject new sensor data and clear short windows, while retaining completed baselines. Incomplete baselines restart after an interruption. A new session resets all processing state. The last visual shape is held during unavailable composite data, while charts leave explicit gaps.
+
+## Fusion storage compatibility
+
+Database version 4 adds nullable `heart_rate_bpm` and `calmness`, plus `algorithm_version` (0 for legacy samples, 1 for this demo). New samples persist the actual composite used by the galaxy, including null calibration and gap values. Old user sessions are not backfilled: they retain their original band-driven replay and relative charts, with `No calmness data` in the new chart. The reserved bundled simulation is backfilled once from the checked-in CSV using the same EEG calibration and stored stillness, with no invented heart rate. New simulation runs also use these two-component results.
+
+The existing swipe-deletion transaction removes all new sample fields with the row. Deleted bundled history is still restored on the next launch; ordinary deleted sessions remain absent.

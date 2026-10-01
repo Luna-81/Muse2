@@ -10,6 +10,7 @@ class SessionSamples {
 
     val count: Int get() = samples.size
     val all: List<StateSample> get() = samples.toList()
+    val calmnessCount: Int get() = samples.count { it.valid && it.calmness?.let { value -> value.isFinite() && value in 0.0..1.0 } == true }
     val lastSecond: Int get() = samples.lastOrNull()?.elapsedSeconds ?: 0
     val visualSample: StateSample? get() = latestValid ?: samples.lastOrNull()
 
@@ -17,7 +18,7 @@ class SessionSamples {
     fun record(sample: StateSample): List<StateSample> {
         require(sample.elapsedSeconds > lastSecond)
         val added = (lastSecond + 1 until sample.elapsedSeconds)
-            .map { StateSample(elapsedSeconds = it) } + sample
+            .map { StateSample(elapsedSeconds = it, algorithmVersion = sample.algorithmVersion) } + sample
         added.forEach(::append)
         return added
     }

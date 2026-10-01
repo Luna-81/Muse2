@@ -95,8 +95,8 @@ fun HushApp(
                 item { ParticlePanel(sessionState.latestSample, sessionState.latestSample?.valid != true, galaxyMotion) }
                 item { HushPanel(Modifier.fillMaxWidth()) {
                     Text(formatDuration(sessionState.elapsedSeconds), style = MaterialTheme.typography.displayLarge)
-                    Text(if (sessionState.validSampleCount >= 2) sessionState.result?.title ?: "Session saved" else "Not enough signal", style = MaterialTheme.typography.titleLarge)
-                    if (sessionState.validSampleCount >= 2) sessionState.result?.let { Text(it.description, color = HushColors.Muted) }
+                    Text(if (sessionState.calmnessSampleCount >= 2) sessionState.result?.title ?: "Session saved" else "Not enough signal", style = MaterialTheme.typography.titleLarge)
+                    if (sessionState.calmnessSampleCount >= 2) sessionState.result?.let { Text(it.description, color = HushColors.Muted) }
                 } }
                 item { PrimaryAction("View session", { history.firstOrNull { it.id == sessionState.sessionId }?.let(onOpenDetail) }, enabled = history.any { it.id == sessionState.sessionId }) }
                 item { TextButton(onClick = onStartNewSession, modifier = Modifier.fillMaxWidth()) { Text("Back to home") } }
@@ -230,7 +230,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
                             Text(if (summary.isBundledSimulation) "Saved simulation" else formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
                             Text(if (summary.isBundledSimulation) formatDuration(summary.actualSeconds) else "${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
-                            Text(if (summary.validSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
+                            Text(if (summary.resultSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -239,7 +239,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
     }
 }
 @Composable
-private fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
+internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
     val cursor = remember(samples) { ReplayCursor(samples) }
     val sample = cursor.sampleAt(progress)
     Page(if (summary.isBundledSimulation) "Saved simulation" else "Session details", onBack) {
@@ -255,12 +255,15 @@ private fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSamp
                 Text(formatDuration(sample?.elapsedSeconds ?: 0), color = HushColors.Muted)
             } }
             item { HushPanel(Modifier.fillMaxWidth()) {
+                CalmnessChart(samples, summary.actualSeconds, plotHeight = 160.dp)
+            } }
+            item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Relative trends", style = MaterialTheme.typography.titleMedium)
                 TrendChart(samples)
                 Text("Alpha · Theta · Beta · Stillness", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
                 Text("Gaps indicate missing signal.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
             } }
-            item { Text(if (summary.validSampleCount >= 2) summary.result.description else "Not enough signal to describe this session.", color = HushColors.Muted) }
+            item { Text(if (summary.resultSampleCount >= 2) summary.result.description else "Not enough signal to describe this session.", color = HushColors.Muted) }
         }
     }
 }

@@ -9,6 +9,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GalaxyMotionTest {
+    @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {
+        val composite = sample(0.4).copy(algorithmVersion = 1, calmness = 0.8)
+        assertEquals(0.2f, galaxyAgitation(composite)!!, 0.000001f)
+        assertNull(galaxyAgitation(composite.copy(calmness = null)))
+        assertNull(galaxyAgitation(composite.copy(calmness = Double.NaN)))
+        assertNull(galaxyAgitation(composite.copy(valid = false)))
+    }
     @Test fun recordedFramesAreDeterministicAndRejectMissingBands() {
         val motion = GalaxyMotion()
         val recorded = StateSample(120, 0.3, 0.3, 0.4, valid = true, eegBandsAvailable = true)

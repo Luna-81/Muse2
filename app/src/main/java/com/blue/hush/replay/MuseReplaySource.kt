@@ -1,6 +1,7 @@
 package com.blue.hush.replay
 
 import android.content.Context
+import com.blue.hush.processing.CalmnessEstimator
 import com.blue.hush.session.StateSample
 
 /** Loads the checked-in ten-minute Muse session used by the device simulation mode. */
@@ -11,11 +12,13 @@ object MuseReplaySource {
     private const val ASSET_PATH = "simulation/muse_last_10m.csv"
 
     fun load(context: Context): List<StateSample> = runCatching {
+        val estimator = CalmnessEstimator()
         context.assets.open(ASSET_PATH).bufferedReader().useLines { lines ->
             lines
                 .drop(1)
                 .mapNotNull(::parseLine)
                 .sortedBy { it.elapsedSeconds }
+                .map(estimator::process)
                 .toList()
         }
     }.getOrDefault(emptyList())

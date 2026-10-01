@@ -28,3 +28,13 @@ The launcher activity exposes the MVP meditation flow. Home owns the connection 
 2. Put the Muse 2 into pairing mode. Home searches automatically while visible.
 3. Hush automatically connects the remembered device, or the only discovered device on first use. Select a device in the sheet when multiple devices are available.
 4. Choose a duration and music track, then tap `Start meditation`.
+
+## Sensor processing contract
+
+The adapter uses `getAccelerometerValue(X/Y/Z)` and `getPpgChannelValue(IR/RED)` instead of assuming SDK array positions. Its application-facing PPG list contains IR and Red from a single sampling instant, never two consecutive time samples. Each packet includes a monotonic `receivedAtMillis` from `SystemClock.elapsedRealtime()`; SDK timestamps are preserved separately, and their undocumented units are not used to calculate BPM.
+
+The demo assumes Muse 2 PPG at 64Hz. A rolling eight-second window checks its sample count against monotonic arrival duration (20% tolerance), resets after delivery gaps over 500ms or channel changes, and estimates heart rate from filtered peak intervals. Fresh `IS_PPG_GOOD` and `IS_HEART_GOOD` flags can reject the window; `IS_GOOD` excludes explicitly bad EEG channels. Quality flags expire after two seconds. Missing flags fall back to numerical/window checks, so physical-device validation remains required. Bluetooth delivery timing does not reconstruct every lost sample.
+
+`ARTIFACTS` is not subscribed. The SDK-required artifact callback is a no-op, and blink, jaw-clench, and headband-wear events are not exposed to the application.
+
+For physical validation, check actual PPG callback cadence and IR/Red availability, compare estimated BPM with a reference pulse measurement while still, then move/rotate the head and verify movement response and PPG rejection. Test pause, resume, and reconnect to confirm no heart intervals span interruptions. Emulator and synthetic-signal tests cannot establish measurement accuracy.

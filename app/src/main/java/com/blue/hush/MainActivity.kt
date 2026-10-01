@@ -119,7 +119,6 @@ class MainActivity : ComponentActivity() {
 
         override fun onDataPacket(packet: MuseDeviceManager.MusePacket) = Unit
 
-        override fun onArtifact(packet: MuseDeviceManager.MuseArtifact) = Unit
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

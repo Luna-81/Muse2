@@ -3,8 +3,11 @@ package com.blue.hush.ui
 import com.blue.hush.session.StateSample
 import kotlin.math.exp
 
-// Artistic relative-band mapping only; this does not classify thoughts.
+// Demo composite mapping for new samples; preserve the legacy artistic band mapping.
 internal fun galaxyAgitation(sample: StateSample?): Float? {
+    if (sample?.algorithmVersion != null && sample.algorithmVersion > 0) {
+        return sample.calmness?.takeIf { sample.valid && it.isFinite() && it in 0.0..1.0 }?.let { (1 - it).toFloat() }
+    }
     if (sample?.valid != true || !sample.eegBandsAvailable) return null
     val bands = listOf(sample.alpha, sample.theta, sample.beta)
     if (bands.any { it == null || !it.isFinite() || it !in 0.0..1.0 }) return null
@@ -34,7 +37,7 @@ internal class GalaxyMotion(phase: Float = 0f, agitation: Float = 0f, visibility
         val dt = seconds.coerceIn(0f, 0.05f)
         val fade = 1f - exp(-dt / 2.5f)
         visibility += ((if (target == null) 0.25f else 1f) - visibility) * fade
-        // Missing EEG freezes the actual shape, rather than implying calm.
+        // Missing composite data freezes the actual shape, rather than implying calm.
         if (target == null) return
         val duration = if (target < agitation) 4f else 2.5f
         agitation += (target - agitation) * (1f - exp(-dt / duration))

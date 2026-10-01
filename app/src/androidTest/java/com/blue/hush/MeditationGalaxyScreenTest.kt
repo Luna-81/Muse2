@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
@@ -28,6 +29,7 @@ class MeditationGalaxyScreenTest {
     @Test fun controlsAndMissingSignalRemainUsable() {
         val state = mutableStateOf(SessionState(
             phase = SessionPhase.RUNNING, connected = true, elapsedSeconds = 65,
+            calibrationSeconds = 10,
             latestSample = StateSample(65, 0.45, 0.4, 0.15, valid = true, eegBandsAvailable = true),
         ))
         var finished = 0
@@ -48,7 +50,7 @@ class MeditationGalaxyScreenTest {
         compose.mainClock.advanceTimeBy(12_000)
         compose.onNodeWithText("18:55").assertIsDisplayed()
         compose.onNodeWithContentDescription("Pause").assertIsDisplayed()
-        compose.onNodeWithText("Finish").assertIsDisplayed()
+        compose.onNodeWithText("Finish").performScrollTo().assertIsDisplayed()
         saveScreenshot("galaxy-calm.png")
         compose.runOnIdle {
             state.value = state.value.copy(latestSample = StateSample(65, 0.15, 0.15, 0.7, valid = true, eegBandsAvailable = true))
@@ -108,9 +110,9 @@ class MeditationGalaxyScreenTest {
             }
             compose.onNodeWithText("18:55").assertIsDisplayed()
             compose.onNodeWithContentDescription("Resume").assertIsDisplayed()
-            compose.onNodeWithText("Finish").assertIsDisplayed()
+            compose.onNodeWithText("Finish").performScrollTo().assertIsDisplayed()
             compose.onNodeWithContentDescription("Adjust volume").performClick()
-            compose.onNodeWithContentDescription("Meditation volume").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Meditation volume").performScrollTo().assertIsDisplayed()
             saveScreenshot("galaxy-landscape.png")
         } finally {
             compose.activityRule.scenario.onActivity { it.requestedOrientation = previousOrientation }

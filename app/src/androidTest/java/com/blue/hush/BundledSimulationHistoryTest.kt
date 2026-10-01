@@ -55,11 +55,10 @@ class BundledSimulationHistoryTest {
         try {
             HushDatabase(context).use { database ->
                 database.ensureBundledSimulation(replay)
-                // Session and sample tables retain the version-one schema.
-                database.writableDatabase.version = 1
+                recreateLegacySampleSchema(database.writableDatabase, 1)
             }
             HushDatabase(context).use { database ->
-                assertEquals(3, database.readableDatabase.version)
+                assertEquals(4, database.readableDatabase.version)
                 database.ensureBundledSimulation(replay)
                 assertEquals(1, database.loadSummaries().size)
                 assertEquals(replay, database.loadSamples(BUNDLED_SIMULATION_SESSION_ID))
@@ -83,11 +82,11 @@ class BundledSimulationHistoryTest {
                 val db = database.writableDatabase
                 db.execSQL("CREATE TABLE imported_sessions (session_id INTEGER PRIMARY KEY)")
                 db.execSQL("INSERT INTO imported_sessions (session_id) VALUES (?)", arrayOf(BUNDLED_SIMULATION_SESSION_ID))
-                db.version = 2
+                recreateLegacySampleSchema(db, 2)
             }
             HushDatabase(context).use { database ->
                 database.ensureBundledSimulation(replay)
-                assertEquals(3, database.readableDatabase.version)
+                assertEquals(4, database.readableDatabase.version)
                 assertEquals(BUNDLED_SIMULATION_SESSION_ID, database.loadSummaries().single().id)
                 assertEquals(replay, database.loadSamples(BUNDLED_SIMULATION_SESSION_ID))
             }

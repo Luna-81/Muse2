@@ -28,8 +28,11 @@ data class StateSample(
     val beta: Double? = null,
     val stillness: Double? = null,
     val valid: Boolean = false,
-    // Live-only availability; historical rows intentionally retain the default.
+    // Legacy rows infer availability only for their original visual mapping.
     val eegBandsAvailable: Boolean = false,
+    val heartRateBpm: Double? = null,
+    val calmness: Double? = null,
+    val algorithmVersion: Int = 0,
 )
 
 data class SessionSummary(
@@ -42,6 +45,7 @@ data class SessionSummary(
     val result: ResultLabel,
     val sampleCount: Int,
     val validSampleCount: Int,
+    val resultSampleCount: Int = validSampleCount,
 ) {
     val isBundledSimulation: Boolean get() = id == BUNDLED_SIMULATION_SESSION_ID
 }
@@ -61,4 +65,7 @@ data class SessionState(
     val volume: Float = 0.7f,
     val result: ResultLabel? = null,
     val message: String? = null,
+    val calibrationSeconds: Int = 0,
+    val calmnessSampleCount: Int = 0,
+    val trendSamples: List<StateSample> = emptyList(),
 )

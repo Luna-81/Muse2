@@ -7,6 +7,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SessionResultClassifierTest {
+    @Test fun newClassificationUsesCalmnessRatherThanStillness() {
+        val samples = List(8) { StateSample(it + 1, stillness = 1.0, valid = true, calmness = if (it < 4) 0.3 else 0.7, algorithmVersion = 1) }
+        assertEquals(ResultLabel.SETTLING, SessionResultClassifier.classify(samples))
+    }
     @Test
     fun classifiesShortSessionFromAvailableSamples() {
         val samples = List(3) { StateSample(it, stillness = 0.8, valid = true) }

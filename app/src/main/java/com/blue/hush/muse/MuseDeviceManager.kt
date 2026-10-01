@@ -1,6 +1,9 @@
 package com.blue.hush.muse
 
 import android.content.Context
+import android.os.SystemClock
+import com.choosemuse.libmuse.Accelerometer
+import com.choosemuse.libmuse.Ppg
 import com.choosemuse.libmuse.ConnectionState
 import com.choosemuse.libmuse.Muse
 import com.choosemuse.libmuse.MuseArtifactPacket
@@ -35,7 +38,6 @@ class MuseDeviceManager(
 
         fun onDataPacket(packet: MusePacket)
 
-        fun onArtifact(packet: MuseArtifact)
     }
 
     data class MuseDevice(
@@ -49,14 +51,7 @@ class MuseDeviceManager(
         val type: MuseDataPacketType,
         val values: List<Double>,
         val timestamp: Long,
-    )
-
-    data class MuseArtifact(
-        val device: MuseDevice,
-        val blink: Boolean,
-        val headbandOn: Boolean,
-        val jawClench: Boolean,
-        val timestamp: Long,
+        val receivedAtMillis: Long,
     )
 
     private val manager = MuseManagerAndroid.getInstance()
@@ -90,23 +85,18 @@ class MuseDeviceManager(
                 MusePacket(
                     device = deviceFor(muse),
                     type = packet.packetType(),
-                    values = packet.values().map { it.toDouble() },
+                    values = when (packet.packetType()) {
+                        MuseDataPacketType.ACCELEROMETER -> listOf(Accelerometer.X, Accelerometer.Y, Accelerometer.Z).map(packet::getAccelerometerValue)
+                        MuseDataPacketType.PPG -> listOf(Ppg.IR, Ppg.RED).map(packet::getPpgChannelValue)
+                        else -> packet.values().map { it.toDouble() }
+                    },
                     timestamp = packet.timestamp(),
+                    receivedAtMillis = SystemClock.elapsedRealtime(),
                 ),
             )
         }
 
-        override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) {
-            listener.onArtifact(
-                MuseArtifact(
-                    device = deviceFor(muse),
-                    blink = packet.getBlink(),
-                    headbandOn = packet.getHeadbandOn(),
-                    jawClench = packet.getJawClench(),
-                    timestamp = packet.getTimestamp(),
-                ),
-            )
-        }
+        override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) = Unit
     }
 
     init {
@@ -204,7 +194,6 @@ class MuseDeviceManager(
             MuseDataPacketType.HSI,
             MuseDataPacketType.HSI_PRECISION,
             MuseDataPacketType.BATTERY,
-            MuseDataPacketType.ARTIFACTS,
         )
     }
 }

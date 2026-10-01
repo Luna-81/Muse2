@@ -18,8 +18,8 @@ import com.blue.hush.ui.theme.HushColors
 internal fun ParticlePanel(
     sample: StateSample?, dataGap: Boolean, motion: GalaxyMotion? = null,
 ) {
-    // Persisted valid rows contain measured bands but no live availability flag.
-    val recordedSample = sample?.copy(eegBandsAvailable = sample.valid)
+    // Preserve the historical band mapping only for rows predating composite processing.
+    val recordedSample = if (sample?.algorithmVersion == 0) sample.copy(eegBandsAvailable = sample.valid) else sample
     val visual = motion ?: remember(recordedSample) {
         GalaxyMotion().apply { showRecordedSample(recordedSample) }
     }
@@ -27,7 +27,7 @@ internal fun ParticlePanel(
         Box(Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), contentAlignment = Alignment.Center) {
             GalaxyParticleField(recordedSample, dataGap, paused = true,
                 modifier = Modifier.fillMaxSize(), state = visual)
-            if (dataGap) Text("Data gap", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (dataGap || galaxyAgitation(recordedSample) == null) Text("Data gap", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

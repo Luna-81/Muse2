@@ -72,7 +72,7 @@ Ownership boundaries:
 
 - `MainActivity` owns permissions, visible Home discovery, idle connection, history loading, and service handoff.
 - `MeditationService` owns an active live or simulated session, timing, audio, Muse callbacks, reconnection, and persistence.
-- `SignalProcessor` converts selected Muse packets into smoothed per-second samples. PPG is registered by the adapter, but heart-rate extraction is not implemented in the current MVP.
+- `SignalProcessor` converts selected Muse packets into smoothed per-second samples. Demo PPG heart-rate estimation and 10-second EEG calibration feed a composite Calmness trend; physical-device measurement accuracy is not yet established.
 - `HushApp` and the UI package render `SessionState` and persisted `StateSample` values; composables must not consume raw Muse packets or write the database.
 - `HushDatabase` stores session metadata and downsampled samples locally. Raw EEG, PPG, and IMU packets are not persisted.
 
