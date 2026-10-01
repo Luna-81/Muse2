@@ -4,6 +4,8 @@ package com.blue.hush.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.replay.ReplayCursor
@@ -72,6 +75,7 @@ fun HushApp(
     onVolumeChanged: (Float) -> Unit, onOpenDetail: (SessionSummary) -> Unit,
     onCloseDetail: () -> Unit, onReplayProgressChanged: (Float) -> Unit,
     onPreviewTrack: (MusicTrack) -> Unit, onStopPreview: () -> Unit,
+    onDeleteSession: (SessionSummary) -> Unit,
 ) {
     var deviceSheet by rememberSaveable { mutableStateOf(false) }
     var musicSheet by rememberSaveable { mutableStateOf(false) }
@@ -130,7 +134,7 @@ fun HushApp(
                         })
                     } }
                 }
-            } else HistoryScreen(history, onOpenDetail)
+            } else HistoryScreen(history, onOpenDetail, onDeleteSession)
         }
     }
     if (deviceSheet) ModalBottomSheet(onDismissRequest = { deviceSheet = false }, containerColor = HushColors.Surface) {
@@ -172,18 +176,62 @@ fun HushApp(
 }
 
 @Composable
-private fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummary) -> Unit) {
+internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummary) -> Unit, onDelete: (SessionSummary) -> Unit) {
+    var pendingDeleteId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val pendingDelete = history.firstOrNull { it.id == pendingDeleteId }
+    if (pendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            title = { Text("Delete session?") },
+            text = { Text(if (pendingDelete.isBundledSimulation)
+                "This saved simulation will be removed until the next app launch."
+            else "This session and its replay data will be permanently deleted.") },
+            confirmButton = { TextButton(onClick = {
+                pendingDeleteId = null
+                onDelete(pendingDelete)
+            }) { Text("Delete", color = HushColors.Error) } },
+            dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("Cancel") } },
+            containerColor = HushColors.Surface,
+        )
+    }
     LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
         item { Text("History", style = MaterialTheme.typography.headlineLarge) }
         if (history.isEmpty()) item { HushPanel(Modifier.fillMaxWidth()) { Text("Your quiet moments, collected."); Text("Complete a session to see it here.", color = HushColors.Muted) } }
         items(history, key = { it.id }) { summary ->
-            Surface(onClick = { onOpen(summary) }, shape = HushShapes.Panel, color = HushColors.Surface, border = BorderStroke(1.dp, HushColors.Border)) {
-                Row(Modifier.fillMaxWidth().padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-                    MindprintThumbnail(summary.id, Modifier.size(56.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                        Text(if (summary.isBundledSimulation) "Saved simulation" else formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
-                        Text(if (summary.isBundledSimulation) formatDuration(summary.actualSeconds) else "${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
-                        Text(if (summary.validSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
+            val dismissState = rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.4f })
+            LaunchedEffect(dismissState.settledValue) {
+                if (dismissState.settledValue == SwipeToDismissBoxValue.EndToStart) {
+                    pendingDeleteId = summary.id
+                    // Restore the card while confirmation is shown, including cancellation or failure.
+                    dismissState.reset()
+                }
+            }
+            SwipeToDismissBox(
+                state = dismissState,
+                modifier = Modifier.animateItem().clip(HushShapes.Panel),
+                enableDismissFromStartToEnd = false,
+                gesturesEnabled = pendingDelete == null,
+                backgroundContent = {
+                    Surface(Modifier.fillMaxSize(), color = HushColors.Error.copy(alpha = 0.15f), shape = HushShapes.Panel) {
+                        Box(Modifier.fillMaxSize().padding(HushSpace.lg), contentAlignment = Alignment.CenterEnd) {
+                            Text("Delete", color = HushColors.Error, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                },
+            ) {
+                Surface(onClick = { onOpen(summary) }, shape = HushShapes.Panel, color = HushColors.Surface, border = BorderStroke(1.dp, HushColors.Border)) {
+                    Row(Modifier.fillMaxWidth().semantics {
+                        customActions = listOf(CustomAccessibilityAction("Delete session") {
+                            pendingDeleteId = summary.id
+                            true
+                        })
+                    }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
+                        MindprintThumbnail(summary.id, Modifier.size(56.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
+                            Text(if (summary.isBundledSimulation) "Saved simulation" else formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
+                            Text(if (summary.isBundledSimulation) formatDuration(summary.actualSeconds) else "${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
+                            Text(if (summary.validSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }

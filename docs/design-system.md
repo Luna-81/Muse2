@@ -21,7 +21,7 @@ Typography uses the system sans-serif: Light titles/countdown, Regular body and 
 - Soundscape sheet: selection and preview. Dismissal, backgrounding and session start stop preview audio.
 - Session: remaining time, circular Pause/Resume, volume and confirmed Finish. Landscape separates controls from the galaxy; constrained controls scroll.
 - Completion: actual duration, Mindprint and existing relative-trend classification, with no assessment when fewer than two valid samples exist. Completion and history detail share the width-responsive galaxy panel capped at 440dp high, matching Home's sizing rule.
-- History/detail: saved sessions, particle replay and labeled relative trends with gaps. Small history star emblems are decorative session identifiers, not physiological measurements; the detail visualization uses recorded samples.
+- History/detail: saved sessions, particle replay and labeled relative trends with gaps. History cards support swiping from end to start to reveal `Delete` and open a confirmation dialog; canceling restores the card. The same action is available to accessibility services. Small history star emblems are decorative session identifiers, not physiological measurements; the detail visualization uses recorded samples.
 
 Reusable controls live in `HushComponents`. Route composition is in `HushApp`; charts and particle summaries are in `SessionVisuals`. Activity code coordinates permissions, idle connection, service events and storage. Do not introduce signal processing into composables or let a hidden Home route claim a service-owned Muse.
 
@@ -31,6 +31,6 @@ Use safe system insets, bounded content widths, scrollable content, semantic nam
 
 ## Limits
 
-No calm/focus scores or medical interpretation are introduced. No database migration is required. Device addresses remain local preferences. Frame-rate and Bluetooth reliability claims require measurement on a physical target device.
+No calm/focus scores or medical interpretation are introduced. Database version 3 preserves session data and removes the obsolete import marker. Deleted bundled history returns on the next app launch; ordinary history remains deleted. Device addresses remain local preferences. Frame-rate and Bluetooth reliability claims require measurement on a physical target device.
 
 All main particle views use `GalaxyParticleField`, `GalaxyNebula`, and their fixed seed, palette, glow, and trails. Home and live meditation share motion state with the frozen completion Mindprint; recorded detail frames use the same renderer. The renderer is implemented with Compose Canvas and procedural 2D drawing.

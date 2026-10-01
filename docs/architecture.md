@@ -15,9 +15,11 @@ The service uses monotonic elapsed time for timing and checks it every 250 ms wh
 
 ## Simulation and history
 
-`MuseReplaySource` loads the bundled CSV and enables simulation only if it contains exactly 600 consecutive, valid, finite samples for seconds 1–600. During initial data loading, `HushDatabase` imports that sequence in one transaction under a reserved session ID if it is not already present. Its synthetic time is placed immediately before the earliest existing session (or before first launch when history is empty), so it appears as the oldest History entry. The UI labels it `Saved simulation` and hides the synthetic date and placeholder music track. No migration is needed for existing databases.
+`MuseReplaySource` loads the bundled CSV and enables simulation only if it contains exactly 600 consecutive, valid, finite samples for seconds 1–600. During initial data loading, `HushDatabase` imports that sequence in one transaction under a reserved session ID if it is not already present. Its synthetic time is placed immediately before the earliest existing session (or before first launch when history is empty), so it appears as the oldest History entry. The UI labels it `Saved simulation` and hides the synthetic date and placeholder music track.
 
 The service also reads the same source by second through its normal timing, storage, summary, and UI state path when the user starts a new simulation. That run creates its own ordinary session record. History replay reads persisted samples and positions the shared galaxy using `ReplayCursor`; it does not restore the exact live particle positions.
+
+History supports swiping a card from end to start to request deletion. Confirmation removes the session and all its samples in one database transaction; cancellation leaves the card available. Ordinary sessions are permanently deleted. The bundled `Saved simulation` is restored from the CSV on the next app launch, as stated in its confirmation dialog. `MainActivity` performs deletion on its storage executor and refreshes the list only after success. Database version 3 removes the obsolete version-two import-marker table without changing existing session or sample rows. Startup restores missing bundled history even if it was deleted under version two; the bundled CSV also remains available for new simulations.
 
 ## UI and rendering
 

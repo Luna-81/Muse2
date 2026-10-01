@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
                         sessionState = sessionState.copy(volume = it)
                     },
                     onOpenDetail = ::openDetail,
+                    onDeleteSession = ::deleteSession,
                     onCloseDetail = { detailSummary = null; syncDiscovery() },
                     onReplayProgressChanged = { replayProgress = it },
                     onPreviewTrack = ::togglePreview,
@@ -404,6 +405,21 @@ class MainActivity : ComponentActivity() {
                 detailSamples = samples
                 replayProgress = 0f
                 syncDiscovery()
+            }
+        }
+    }
+
+    private fun deleteSession(summary: SessionSummary) {
+        ioExecutor.execute {
+            val result = runCatching {
+                database.deleteSession(summary.id)
+                database.loadSummaries()
+            }
+            mainHandler.post {
+                if (isDestroyed) return@post
+                result.onSuccess { history = it }.onFailure {
+                    android.widget.Toast.makeText(this, "Could not delete session. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

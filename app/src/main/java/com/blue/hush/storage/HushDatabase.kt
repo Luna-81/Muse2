@@ -40,7 +40,23 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         db.execSQL("CREATE INDEX samples_session_index ON samples(session_id, elapsed_seconds)")
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Version two recorded imports permanently; bundled history is now restored on startup.
+        if (oldVersion < 3) db.execSQL("DROP TABLE IF EXISTS imported_sessions")
+    }
+
+    fun deleteSession(sessionId: Long) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            // Foreign-key enforcement was not enabled in existing databases.
+            db.delete("samples", "session_id = ?", arrayOf(sessionId.toString()))
+            db.delete("sessions", "id = ?", arrayOf(sessionId.toString()))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
 
     fun insertSession(startedAt: Long, plannedSeconds: Int, track: MusicTrack): Long {
         val values = ContentValues().apply {
@@ -55,7 +71,7 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         insertSample(writableDatabase, sessionId, sample)
     }
 
-    /** Imports the bundled replay once, before normal history is loaded. */
+    /** Ensures bundled history exists on startup, restoring it after deletion. */
     fun ensureBundledSimulation(samples: List<StateSample>) {
         val db = writableDatabase
         db.beginTransaction()
@@ -187,6 +203,6 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     private companion object {
         const val DATABASE_NAME = "hush.db"
-        const val DATABASE_VERSION = 1
+        const val DATABASE_VERSION = 3
     }
 }

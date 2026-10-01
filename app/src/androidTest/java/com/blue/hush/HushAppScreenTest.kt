@@ -42,6 +42,7 @@ class HushAppScreenTest {
                                 connection = connection.copy(simulationMode = it); if (it) duration = 600
                             }, onPause = {}, onResume = {}, onFinish = {}, onStartNewSession = {}, onVolumeChanged = {},
                             onOpenDetail = {}, onCloseDetail = {}, onReplayProgressChanged = {},
+                            onDeleteSession = {},
                             onPreviewTrack = {}, onStopPreview = { previewStops++ },
                         )
                     }
