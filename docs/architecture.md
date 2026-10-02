@@ -37,7 +37,7 @@ The two earliest completed device sessions are checked in separately as `app/src
 
 ## UI and rendering
 
-`SessionDuration` defines the 10-minute default and 1-60 minute live-session range shared by Home, Activity state restoration, and foreground-service validation. The Home picker sends the confirmed duration in seconds through the existing session handoff. Simulation continues to use its fixed 600-second source duration.
+`SessionDuration` defines the 15-minute default and 1-60 minute live-session range shared by Home, Activity state restoration, and foreground-service validation. The inline Home wheel updates the selected duration in seconds as its centered minute changes, using the existing session handoff. Simulation continues to use its fixed 600-second source duration.
 
 The UI consumes processed `SessionState` and `StateSample` values. `GalaxyParticleField` and `GalaxyMotion` own the visual mapping and animation; composables do not receive raw LibMuse packets or write session samples. See [design system](design-system.md) for screen conventions and [README](../README.md) for build and device validation commands.
 
