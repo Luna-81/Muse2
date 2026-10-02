@@ -2,7 +2,17 @@
 
 ## Ownership
 
-`MainActivity` owns Home-only discovery and the pre-session Muse connection. Discovery stops when Home is hidden, the app is backgrounded, simulation is selected, or a session begins. At session start, the activity releases its LibMuse listener and `MeditationService` becomes the connection owner. The service is a foreground service so its timer and audio can continue while the UI is not visible. `SessionRuntime` publishes its current state to the activity; Compose renders that state and sends user commands back to the service.
+`MuseConnectionRuntime` owns one process-local LibMuse adapter and retains its native connection across navigation, activity recreation, simulation selection, and session completion. `MainActivity` subscribes to connection state and owns permissions and idle discovery whenever the app is visible, regardless of the selected tab or detail screen. Backgrounding stops idle discovery but preserves an established connection. Manual disconnect, unavailable Bluetooth/permissions, and connection failures can release the adapter. Process termination ends the connection; idle background operation is not a foreground service guarantee.
+
+`MeditationService` subscribes to that same adapter during a live session, without reconnecting an already-connected device. It owns active-session reconnection scanning, timing, audio, processing, and persistence; finishing or destroying the service only removes its subscription. Simulation does not subscribe to live sensor packets or disconnect a connected Muse. Connection/discovery callbacks are serialized on the main thread; packets retain their SDK-thread delivery. Detached consumers and callbacks from a released adapter cannot update the new connection owner. The service remains a foreground service so its timer and audio can continue while the UI is not visible. `SessionRuntime` publishes its current state to the activity; Compose renders that state and sends user commands back to the service.
+
+## Soundscapes
+
+`AmbientAudioEngine` streams bundled Ogg Vorbis recordings through Android `MediaPlayer`, with asynchronous preparation and looping playback. `MainActivity` owns a preview engine; `MeditationService` owns the session engine. Pause/resume preserves playback position, and volume is applied once by the player. Stopping or replacing a track releases its player; a stale preparation callback cannot restart a dismissed preview. No network, synthesis worker, or additional playback dependency is required.
+
+New sessions offer Rain, Ocean, and Fireplace, with Rain selected by default. `MIST` and `TIDE` enum values remain readable with their original history labels; legacy playback commands map them to Rain and Ocean respectively. Existing database rows require no migration. The soundscape sheet scrolls on constrained screens.
+
+The recordings are CC0 field recordings, edited offline for consistent loudness and a blended loop seam. See [audio sources](audio-sources.md) for provenance, processing, sizes, and device validation. Rain includes occasional distant thunder. Loop audibility and headphone balance require listening on the target device; automated checks only establish decoding and playback behavior.
 
 ## Live samples
 
@@ -37,7 +47,7 @@ Acceleration removes a low-pass gravity estimate (one-second time constant), the
 
 Composite weights are EEG 0.60, motion 0.25, and heart 0.15, renormalized over available components. EEG is required. The composite is smoothed with coefficient 0.2 per valid second; galaxy agitation is `1 - calmness`. These thresholds and weights are engineering heuristics for the demo, not a validated meditation-quality or medical assessment. No blink, jaw-clench, or headband-wear artifact events enter processing.
 
-Pause and disconnect reject new sensor data and clear short windows, while retaining completed baselines. Incomplete baselines restart after an interruption. A new session resets all processing state. The last visual shape is held during unavailable composite data, while charts leave explicit gaps.
+Pause and disconnect reject new sensor data and clear short windows, while retaining completed baselines. Incomplete baselines restart after an interruption. Repeated notifications of an unchanged collection state leave calibration and sensor windows intact. A new session resets all processing state. The last visual shape is held during unavailable composite data, while charts leave explicit gaps.
 
 ## Fusion storage compatibility
 

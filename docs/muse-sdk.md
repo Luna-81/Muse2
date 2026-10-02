@@ -22,10 +22,10 @@ LibMuse callbacks are delivered from SDK worker threads. UI consumers must switc
 
 ## Scanning and connection
 
-The launcher activity exposes the MVP meditation flow. Home owns the connection entry point:
+The launcher activity exposes the MVP meditation flow. Home exposes the connection entry point; the connection is retained across screens and sessions:
 
 1. Grant the Bluetooth permission shown by the page.
-2. Put the Muse 2 into pairing mode. Home searches automatically while visible.
+2. Put the Muse 2 into pairing mode. Hush searches automatically while the app is visible and no session is active.
 3. Hush automatically connects the remembered device, or the only discovered device on first use. Select a device in the sheet when multiple devices are available.
 4. Choose a duration and music track, then tap `Start meditation`.
 

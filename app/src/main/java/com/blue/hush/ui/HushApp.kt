@@ -155,9 +155,9 @@ fun HushApp(
     if (musicSheet) {
         DisposableEffect(Unit) { onDispose { onStopPreview() } }
         ModalBottomSheet(onDismissRequest = { musicSheet = false }, containerColor = HushColors.Surface) {
-            Column(Modifier.padding(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-                Text("Soundscapes", style = MaterialTheme.typography.headlineMedium)
-                MusicTrack.entries.forEach { track -> HushPanel(Modifier.fillMaxWidth()) {
+            LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
+                item { Text("Soundscapes", style = MaterialTheme.typography.headlineMedium) }
+                items(MusicTrack.soundscapes, key = { it.name }) { track -> HushPanel(Modifier.fillMaxWidth()) {
                     Text(track.title, style = MaterialTheme.typography.titleLarge)
                     Text(track.subtitle, color = HushColors.Muted)
                     Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {

@@ -11,8 +11,16 @@ enum class SessionPhase {
 }
 
 enum class MusicTrack(val title: String, val subtitle: String) {
+    // Keep persisted enum names and historical labels compatible with earlier sessions.
     MIST("Mist", "Soft low tones with a breathing texture"),
     TIDE("Tide", "Slowly rising and falling dual tones"),
+    RAIN("Rain", "Steady rainfall with distant thunder"),
+    OCEAN("Ocean", "Gentle waves washing over the shore"),
+    FIREPLACE("Fireplace", "Warm fire and soft wood crackles");
+
+    companion object {
+        val soundscapes = listOf(RAIN, OCEAN, FIREPLACE)
+    }
 }
 
 enum class ResultLabel(val title: String, val description: String) {
@@ -61,7 +69,7 @@ data class SessionState(
     val validSampleCount: Int = 0,
     val sampleCount: Int = 0,
     val latestSample: StateSample? = null,
-    val track: MusicTrack = MusicTrack.MIST,
+    val track: MusicTrack = MusicTrack.RAIN,
     val volume: Float = 0.7f,
     val result: ResultLabel? = null,
     val message: String? = null,

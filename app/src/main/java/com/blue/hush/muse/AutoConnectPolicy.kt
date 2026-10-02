@@ -1,9 +1,9 @@
 package com.blue.hush.muse
 
-/** Pure policy: the activity owns discovery only while the home route is visible. */
+/** Idle discovery follows app visibility rather than the selected screen. */
 object AutoConnectPolicy {
-    fun eligible(homeVisible: Boolean, idle: Boolean, permission: Boolean, bluetooth: Boolean,
-        simulation: Boolean, paused: Boolean): Boolean = homeVisible && idle && permission && bluetooth && !simulation && !paused
+    fun eligible(appVisible: Boolean, idle: Boolean, permission: Boolean, bluetooth: Boolean,
+        simulation: Boolean, paused: Boolean): Boolean = appVisible && idle && permission && bluetooth && !simulation && !paused
 
     fun choose(addresses: List<String>, remembered: String?): String? {
         val unique = addresses.distinct()

@@ -132,9 +132,7 @@ class MuseDeviceManager(
         connectedMuse = muse
         val currentState = muse.getConnectionState()
         if (currentState == ConnectionState.CONNECTED) {
-            // A foreground service can claim the already-running Muse instance
-            // after the activity has selected it. Notify the new owner without
-            // forcing a disconnect/reconnect handoff.
+            // Reuse an already-running native instance without restarting it.
             listener.onConnectionStateChanged(device, currentState, currentState)
         } else {
             muse.runAsynchronously()
@@ -143,12 +141,6 @@ class MuseDeviceManager(
 
     fun disconnect() {
         connectedMuse?.disconnect()
-        connectedMuse = null
-    }
-
-    /** Stops discovery without disconnecting the native Muse during ownership handoff. */
-    fun releaseForHandoff() {
-        stopScanning()
         connectedMuse = null
     }
 

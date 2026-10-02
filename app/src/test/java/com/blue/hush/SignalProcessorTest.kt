@@ -11,6 +11,20 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 class SignalProcessorTest {
+    @Test fun repeatedCollectingNotificationDoesNotRestartCalibration() {
+        val processor = SignalProcessor()
+        var sample = processor.nextSample(0, 0)
+        for (second in 1..10) {
+            processor.setCollecting(true)
+            processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
+            processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
+            processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2))
+            sample = processor.nextSample(second)
+        }
+        assertEquals(10, processor.calibrationSeconds)
+        assertTrue(sample.calmness != null)
+    }
+
     @Test fun ppgPipelineJoinsFusionAndPauseOrBadQualityDropsHeartRate() {
         val processor = SignalProcessor()
         var sample = processor.nextSample(0, 0)

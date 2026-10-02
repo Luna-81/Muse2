@@ -20,10 +20,13 @@ The LibMuse 8.0.9 JAR and native libraries are checked in. No SDK download or ac
 - `replay/`: bundled simulation source and history replay cursor.
 - `ui/`: Compose routes, reusable components, theme tokens, and the shared Canvas galaxy renderer.
 - `assets/simulation/`: checked-in ten-minute replay CSV.
+- `audio/` and `res/raw/`: offline, looping Rain, Ocean, and Fireplace field recordings.
 - `MainActivity.kt`: permissions, idle discovery, route state, and service handoff.
 - `app/src/test/` and `app/src/androidTest/`: JVM and device/Compose coverage.
 
 See [architecture](docs/architecture.md) for data ownership and the live/simulation flow. [Muse SDK notes](docs/muse-sdk.md) and the [design system](docs/design-system.md) cover integration and UI constraints.
+
+The Soundscapes sheet offers preview and selection of Rain (with occasional distant thunder), Ocean, and Fireplace. Recordings are bundled, so playback needs no network or account. Audio continues with the foreground session and pauses/resumes at its current position. See [audio sources](docs/audio-sources.md) for CC0 credits and processing details.
 
 ## Validation
 

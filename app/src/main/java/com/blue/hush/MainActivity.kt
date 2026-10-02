@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import com.blue.hush.audio.AmbientAudioEngine
+import com.blue.hush.muse.MuseConnectionRuntime
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.muse.AutoConnectPolicy
 import com.blue.hush.replay.MuseReplaySource
@@ -42,14 +43,14 @@ class MainActivity : ComponentActivity() {
     private var history by mutableStateOf<List<SessionSummary>>(emptyList())
     private var activeTab by mutableStateOf(AppTab.MEDITATE)
     private var selectedDurationSeconds by mutableIntStateOf(20 * 60)
-    private var selectedTrack by mutableStateOf(MusicTrack.MIST)
+    private var selectedTrack by mutableStateOf(MusicTrack.RAIN)
     private var detailSummary by mutableStateOf<SessionSummary?>(null)
     private var detailSamples by mutableStateOf<List<StateSample>>(emptyList())
     private var replayProgress by mutableFloatStateOf(0f)
     private var connectionStateUi by mutableStateOf(ConnectionUiState())
     private var simulationDataAvailable by mutableStateOf(false)
     private var museManager: MuseDeviceManager? = null
-    private val previewEngine = AmbientAudioEngine()
+    private val previewEngine by lazy { AmbientAudioEngine(applicationContext) }
     private var previewTrack by mutableStateOf<MusicTrack?>(null)
     private var removeSessionListener: (() -> Unit)? = null
 
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var idleListener: MuseDeviceManager.Listener? = null
     private var managerGeneration = 0
     private fun museListener(generation: Int) = object : MuseDeviceManager.Listener {
         override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {
@@ -85,7 +87,7 @@ class MainActivity : ComponentActivity() {
             current: ConnectionState,
         ) {
             mainHandler.post {
-                if (generation != managerGeneration || museManager == null || handoffPending || connectionStateUi.connectedDeviceAddress != device.macAddress) return@post
+                if (generation != managerGeneration || museManager == null || (connectionStateUi.connectedDeviceAddress != null && connectionStateUi.connectedDeviceAddress != device.macAddress)) return@post
                 mainHandler.removeCallbacks(connectionTimeout)
                 connectionStateUi = connectionStateUi.copy(
                     connectionState = current,
@@ -93,8 +95,10 @@ class MainActivity : ComponentActivity() {
                     isScanning = false,
                     errorMessage = null,
                 )
+                if (handoffPending || sessionState.phase == SessionPhase.RUNNING || sessionState.phase == SessionPhase.PAUSED) return@post
                 when (current) {
                     ConnectionState.CONNECTED -> {
+                        museManager?.stopScanning()
                         retries = 0
                         preferences.edit().putString("last_device", device.macAddress).apply()
                     }
@@ -125,7 +129,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         activeTab = savedInstanceState?.getString("tab")?.let { runCatching { AppTab.valueOf(it) }.getOrNull() } ?: AppTab.MEDITATE
         selectedDurationSeconds = savedInstanceState?.getInt("duration", 1200) ?: 1200
-        selectedTrack = savedInstanceState?.getString("track")?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() } ?: MusicTrack.MIST
+        selectedTrack = savedInstanceState?.getString("track")?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
+            ?.takeIf { it in MusicTrack.soundscapes } ?: MusicTrack.RAIN
         connectionStateUi = connectionStateUi.copy(simulationMode = savedInstanceState?.getBoolean("simulation") ?: false)
         database = HushDatabase(applicationContext)
         ContextCompat.registerReceiver(this, bluetoothReceiver, android.content.IntentFilter(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -177,7 +182,6 @@ class MainActivity : ComponentActivity() {
                         )
                         if (enabled) {
                             selectedDurationSeconds = MuseReplaySource.DURATION_SECONDS
-                            closeIdleManager()
                         }
                         syncDiscovery()
                     },
@@ -213,7 +217,9 @@ class MainActivity : ComponentActivity() {
         removeSessionListener?.invoke()
         mainHandler.removeCallbacksAndMessages(null)
         previewEngine.stop()
-        closeIdleManager()
+        idleListener?.let(MuseConnectionRuntime::detach)
+        idleListener = null
+        museManager = null
         unregisterReceiver(bluetoothReceiver)
         ioExecutor.execute { database.close() }
         ioExecutor.shutdown()
@@ -255,23 +261,34 @@ class MainActivity : ComponentActivity() {
         getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled == true
     }.getOrDefault(false)
     private fun canDiscover() = AutoConnectPolicy.eligible(
-        foreground && activeTab == AppTab.MEDITATE && detailSummary == null,
-        sessionState.phase == SessionPhase.IDLE && !handoffPending,
+        foreground,
+        sessionState.phase != SessionPhase.RUNNING && sessionState.phase != SessionPhase.PAUSED && !handoffPending,
         hasBluetoothPermission(), bluetoothEnabled(), connectionStateUi.simulationMode, automaticConnectionPaused)
     private fun syncDiscovery() {
         connectionStateUi = connectionStateUi.copy(hasBluetoothPermission = hasBluetoothPermission(),
             bluetoothEnabled = bluetoothEnabled(), automaticConnectionPaused = automaticConnectionPaused)
+        if (handoffPending || sessionState.phase == SessionPhase.RUNNING || sessionState.phase == SessionPhase.PAUSED) {
+            // The session service controls reconnection scanning while it is active.
+            cancelDiscoveryTasks()
+            return
+        }
         if (!canDiscover()) {
             cancelDiscoveryTasks()
             if (museManager != null) runCatching { museManager?.stopScanning() }
             connectionStateUi = connectionStateUi.copy(isScanning = false)
-            if (connectionStateUi.connectionState == ConnectionState.CONNECTING ||
-                !connectionStateUi.hasBluetoothPermission || !connectionStateUi.bluetoothEnabled) closeIdleManager()
+            if (!connectionStateUi.hasBluetoothPermission || !connectionStateUi.bluetoothEnabled) closeIdleManager()
+            else if (connectionStateUi.connectionState == ConnectionState.CONNECTING) mainHandler.postDelayed(connectionTimeout, 20_000L)
             return
+        }
+        if (museManager == null) {
+            runCatching { initializeMuseManager() }.onFailure {
+                connectionStateUi = connectionStateUi.copy(errorMessage = "Could not initialize Muse. Check Bluetooth.")
+                scheduleRetry()
+                return
+            }
         }
         if (connectionStateUi.connectionState != ConnectionState.DISCONNECTED || connectionStateUi.isScanning || retryPending) return
         runCatching {
-            initializeMuseManager()
             connectionStateUi = connectionStateUi.copy(isScanning = true, errorMessage = null)
             museManager?.startScanning()
         }.onFailure {
@@ -296,7 +313,9 @@ class MainActivity : ComponentActivity() {
         val manager = museManager
         managerGeneration++
         museManager = null
-        runCatching { manager?.close() }
+        idleListener?.let(MuseConnectionRuntime::detach)
+        idleListener = null
+        if (manager != null) runCatching { MuseConnectionRuntime.disconnect() }
         connectionStateUi = connectionStateUi.copy(connectionState = ConnectionState.DISCONNECTED,
             connectedDeviceAddress = null, isScanning = false, devices = emptyList())
     }
@@ -314,8 +333,15 @@ class MainActivity : ComponentActivity() {
 
     private fun initializeMuseManager() {
         if (museManager != null) return
-        museManager = MuseDeviceManager(applicationContext, museListener(++managerGeneration))
-        connectionStateUi = connectionStateUi.copy(hasBluetoothPermission = true, errorMessage = null)
+        val listener = museListener(++managerGeneration)
+        idleListener = listener
+        museManager = MuseConnectionRuntime.attach(applicationContext, listener)
+        connectionStateUi = connectionStateUi.copy(
+            hasBluetoothPermission = true,
+            connectionState = MuseConnectionRuntime.connectionState,
+            connectedDeviceAddress = MuseConnectionRuntime.device?.macAddress,
+            errorMessage = null,
+        )
     }
 
     private fun startScanning() {
@@ -352,13 +378,6 @@ class MainActivity : ComponentActivity() {
                 connectionStateUi = connectionStateUi.copy(errorMessage = "The saved 10-minute simulation data is unavailable.")
                 return
             }
-            museManager?.close()
-            museManager = null
-            connectionStateUi = connectionStateUi.copy(
-                connectionState = ConnectionState.DISCONNECTED,
-                connectedDeviceAddress = null,
-                errorMessage = null,
-            )
             handoffPending = true
             runCatching { MeditationService.startSimulation(this, selectedTrack, sessionState.volume) }
                 .onFailure { sessionStartFailed() }
@@ -370,12 +389,9 @@ class MainActivity : ComponentActivity() {
             return
         }
         val deviceName = connectionStateUi.devices.firstOrNull { it.macAddress == address }?.name ?: "Muse 2"
-        // Release discovery before the foreground service takes ownership, but
-        // keep the native Muse connection alive during the listener handoff.
+        // The service subscribes to the same native connection without reconnecting.
         handoffPending = true
-        museManager?.releaseForHandoff()
-        museManager = null
-        connectionStateUi = connectionStateUi.copy(connectionState = ConnectionState.DISCONNECTED, connectedDeviceAddress = null)
+        museManager?.stopScanning()
         runCatching { MeditationService.start(this, address, deviceName, selectedDurationSeconds, selectedTrack, sessionState.volume) }
             .onFailure { sessionStartFailed() }
     }

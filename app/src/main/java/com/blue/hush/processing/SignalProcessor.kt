@@ -118,6 +118,8 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
 
     @Synchronized
     fun setCollecting(enabled: Boolean) {
+        // Replayed connection notifications do not represent a sensor interruption.
+        if (collecting == enabled) return
         collecting = enabled
         clearWindows()
         calmness.interrupt()

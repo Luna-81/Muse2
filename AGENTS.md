@@ -37,7 +37,7 @@ The bundled ten-minute simulation exercises the session, persistence, and replay
 - Android SDK: min 26, target 36, compile 37.1
 - Jetpack Compose Material 3 and Compose Canvas
 - Muse SDK 8.0.9
-- Android foreground service and `AudioTrack` for session audio
+- Android foreground service and `MediaPlayer` for bundled, looping session audio
 - `SQLiteOpenHelper` for local session and sample storage
 - Procedural 2D galaxy rendering; no OpenGL or shader pipeline is currently used
 
@@ -47,7 +47,7 @@ The bundled ten-minute simulation exercises the session, persistence, and replay
 app/src/main/
 ├── java/com/blue/hush/
 │   ├── MainActivity.kt             # permissions, Home discovery, routes, service handoff
-│   ├── audio/                      # locally generated Mist/Tide PCM audio
+│   ├── audio/                      # bundled nature recording playback
 │   ├── muse/                       # LibMuse adapter and idle auto-connect policy
 │   ├── processing/                 # packet aggregation, smoothing, result classification
 │   ├── replay/                     # bundled CSV source and history replay cursor

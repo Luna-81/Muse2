@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.blue.hush.audio.AmbientAudioEngine
+import com.blue.hush.muse.MuseConnectionRuntime
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionResultClassifier
 import com.blue.hush.processing.SessionScoreCalculator
@@ -41,7 +42,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private var desiredDeviceName: String = "Muse 2"
     private var sessionId: Long? = null
     private var plannedSeconds = 20 * 60
-    private var selectedTrack = MusicTrack.MIST
+    private var selectedTrack = MusicTrack.RAIN
     private var currentVolume = 0.7f
     private var isConnecting = false
     private var currentState = SessionState()
@@ -115,13 +116,15 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         handler.removeCallbacksAndMessages(null)
         audioEngine?.stop()
         audioEngine = null
-        museManager?.close()
+        MuseConnectionRuntime.detach(this)
         museManager = null
         database.close()
         super.onDestroy()
     }
 
     override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {
+        // attach() restores snapshots before returning the shared adapter.
+        if (museManager == null) return
         if (currentState.phase != SessionPhase.RUNNING && currentState.phase != SessionPhase.PAUSED) return
         if (isConnecting || currentState.connected) return
         devices.firstOrNull { it.macAddress == desiredMacAddress }?.let {
@@ -182,18 +185,17 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             intent.getIntExtra(EXTRA_PLANNED_SECONDS, 20 * 60).coerceIn(10 * 60, 30 * 60)
         }
         selectedTrack = intent.getStringExtra(EXTRA_TRACK)?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
-            ?: MusicTrack.MIST
+            ?: MusicTrack.RAIN
         currentVolume = intent.getFloatExtra(EXTRA_VOLUME, 0.7f).coerceIn(0f, 1f)
         sessionId = database.insertSession(System.currentTimeMillis(), plannedSeconds, selectedTrack)
         samples.clear()
         processor.reset()
         processor.setCollecting(false)
         clock.start(SystemClock.elapsedRealtime())
-        audioEngine = AmbientAudioEngine().also {
+        audioEngine = AmbientAudioEngine(applicationContext).also {
             it.setVolume(currentVolume)
             it.play(selectedTrack)
         }
-        museManager = if (simulationMode) null else MuseDeviceManager(applicationContext, this)
         publish(
             SessionState(
                 phase = SessionPhase.RUNNING,
@@ -207,7 +209,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             ),
         )
         if (!simulationMode) {
-            runCatching { museManager?.startScanning() }.onFailure {
+            museManager = MuseConnectionRuntime.attach(applicationContext, this)
+            if (!currentState.connected) runCatching { museManager?.startScanning() }.onFailure {
                 publish(currentState.copy(message = "Could not start Muse scanning. Check Bluetooth permission."))
             }
         }
@@ -257,7 +260,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         )
         audioEngine?.stop()
         audioEngine = null
-        museManager?.close()
+        MuseConnectionRuntime.detach(this)
         museManager = null
         sessionId = null
         handler.removeCallbacksAndMessages(null)
