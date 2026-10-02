@@ -7,6 +7,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionScoreCalculator
@@ -58,7 +62,15 @@ data class ConnectionUiState(
 internal fun Page(title: String, onBack: (() -> Unit)? = null, content: @Composable () -> Unit) {
     if (onBack != null) BackHandler(onBack = onBack)
     Scaffold(topBar = { TopAppBar(title = { Text(title, style = MaterialTheme.typography.headlineMedium) },
-        navigationIcon = { if (onBack != null) TextButton(onClick = onBack) { Text("Back") } },
+        navigationIcon = { if (onBack != null) IconButton(onClick = onBack,
+            modifier = Modifier.semantics { contentDescription = "Back" }) {
+            Canvas(Modifier.size(24.dp)) {
+                val stroke = 2.dp.toPx()
+                drawLine(HushColors.Text, Offset(size.width * 0.85f, center.y), Offset(size.width * 0.15f, center.y), stroke, StrokeCap.Round)
+                drawLine(HushColors.Text, Offset(size.width * 0.45f, size.height * 0.2f), Offset(size.width * 0.15f, center.y), stroke, StrokeCap.Round)
+                drawLine(HushColors.Text, Offset(size.width * 0.45f, size.height * 0.8f), Offset(size.width * 0.15f, center.y), stroke, StrokeCap.Round)
+            }
+        } },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = HushColors.Background)) }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) { content() }
     }
@@ -231,27 +243,33 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
 }
 @Composable
 internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
+    var visibleMask by rememberSaveable(summary.id) { mutableStateOf((1 shl ReplayMetric.entries.size) - 1) }
+    val visibleMetrics = ReplayMetric.entries.filter { visibleMask and (1 shl it.ordinal) != 0 }.toSet()
     val cursor = remember(samples) { ReplayCursor(samples) }
     val scores = remember(samples) { SessionScoreCalculator.calculate(samples) }
     val sample = cursor.sampleAt(progress)
+    val retainedSample = remember(samples, sample) {
+        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
+    }
     Page("Session details", onBack) {
         LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
-            item { ParticlePanel(sample, sample?.valid != true) }
-            item { HushPanel(Modifier.fillMaxWidth()) {
-                SessionScoreSummary(summary.actualSeconds, scores)
-                Text("Experimental metrics, not a validated measure of meditation quality.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+            item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+                Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
+                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
+                HushPanel(Modifier.fillMaxWidth()) {
+                    SessionScoreSummary(summary.actualSeconds, scores, compact = true)
+                }
             } }
+            item { ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample) }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Replay", style = MaterialTheme.typography.titleMedium)
-                CalmnessChart(samples, summary.actualSeconds, plotHeight = 160.dp,
-                    replaySecond = sample?.elapsedSeconds,
-                    onReplaySecondSelected = if (samples.isEmpty()) null else { second -> onProgress(cursor.progressAtSecond(second)) })
-            } }
-            item { HushPanel(Modifier.fillMaxWidth()) {
-                Text("Relative trends", style = MaterialTheme.typography.titleMedium)
-                TrendChart(samples)
-                Text("Alpha · Theta · Beta · Stillness", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
-                Text("Gaps indicate missing signal.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+                ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
+                    onMetricChanged = { metric, checked ->
+                        val bit = 1 shl metric.ordinal
+                        visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
+                    },
+                    onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) })
             } }
             item { Text(if (summary.resultSampleCount >= 2) summary.result.description else "Not enough signal to describe this session.", color = HushColors.Muted) }
         }

@@ -20,67 +20,17 @@ import com.blue.hush.ui.theme.HushColors
 internal fun ParticlePanel(
     sample: StateSample?, dataGap: Boolean, motion: GalaxyMotion? = null,
     maxHeight: Dp = 440.dp,
+    animate: Boolean = false, retainedSample: StateSample? = null,
 ) {
     // Preserve the historical band mapping only for rows predating composite processing.
     val recordedSample = if (sample?.algorithmVersion == 0) sample.copy(eegBandsAvailable = sample.valid) else sample
-    val visual = motion ?: remember(recordedSample) {
-        GalaxyMotion().apply { showRecordedSample(recordedSample) }
+    val visual = motion ?: remember(recordedSample, retainedSample) {
+        GalaxyMotion().apply { showRecordedSample(recordedSample, retainedSample) }
     }
     Card(shape = com.blue.hush.ui.theme.HushShapes.Panel) {
         Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).aspectRatio(1f), contentAlignment = Alignment.Center) {
-            GalaxyParticleField(recordedSample, dataGap, paused = true,
-                modifier = Modifier.fillMaxSize(), state = visual)
-            if (dataGap || galaxyAgitation(recordedSample) == null) Text("Data gap", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-internal fun TrendChart(samples: List<StateSample>) {
-    Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-        if (samples.count { it.valid } < 2) return@Canvas
-        val colors = HushColors.Trends
-        val values = listOf<(StateSample) -> Double?>({ it.alpha }, { it.theta }, { it.beta }, { it.stillness })
-        values.forEachIndexed { seriesIndex, selector ->
-            var path: Path? = null
-            var previousPoint: Offset? = null
-            var previousSecond: Int? = null
-            var lastTrustedPoint: Offset? = null
-            var lastTrustedSecond: Int? = null
-            var pointCount = 0
-            fun flush() {
-                if (pointCount == 1) previousPoint?.let { drawCircle(colors[seriesIndex], 2f, it) }
-                else path?.let { drawPath(it, colors[seriesIndex], style = Stroke(width = 4f, cap = StrokeCap.Round)) }
-                path = null
-                previousPoint = null
-                previousSecond = null
-                pointCount = 0
-            }
-            samples.forEachIndexed { index, sample ->
-                val value = selector(sample)
-                if (!sample.valid || value == null || !value.isFinite()) {
-                    flush()
-                    return@forEachIndexed
-                }
-                val x = index.toFloat() / (samples.lastIndex).coerceAtLeast(1) * size.width
-                val y = size.height - value.toFloat().coerceIn(0f, 1f) * size.height
-                if (previousSecond != null && sample.elapsedSeconds != previousSecond!! + 1) flush()
-                val point = Offset(x, y)
-                if (lastTrustedSecond != null && sample.elapsedSeconds > lastTrustedSecond!! + 1) {
-                    lastTrustedPoint?.let { drawChartBridge(it, point, colors[seriesIndex], 4f) }
-                }
-                if (path == null) path = Path().also { it.moveTo(x, y) }
-                else previousPoint?.let { path?.smoothLineTo(it, point) }
-                previousPoint = point
-                previousSecond = sample.elapsedSeconds
-                pointCount++
-                lastTrustedPoint = point
-                lastTrustedSecond = sample.elapsedSeconds
-            }
-            flush()
-            if (lastTrustedSecond != null && lastTrustedSecond!! < (samples.lastOrNull()?.elapsedSeconds ?: 0)) {
-                lastTrustedPoint?.let { drawChartBridge(it, Offset(size.width, it.y), colors[seriesIndex], 4f) }
-            }
+            GalaxyParticleField(recordedSample, dataGap, paused = !animate,
+                modifier = Modifier.fillMaxSize(), state = visual, continueWhenMissing = animate)
         }
     }
 }

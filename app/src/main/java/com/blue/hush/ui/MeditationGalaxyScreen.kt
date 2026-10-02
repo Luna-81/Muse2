@@ -55,7 +55,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
-import com.blue.hush.session.EegSignalStatus
 
 @Composable
 internal fun MeditationGalaxyScreen(
@@ -106,8 +105,8 @@ internal fun MeditationGalaxyScreen(
         // Reserve the measured control area so the added chart does not cover portrait particles.
         val galaxyModifier = if (landscape) Modifier.fillMaxHeight().fillMaxWidth(0.58f).align(Alignment.CenterStart)
             else Modifier.fillMaxWidth().height((maxHeight - controlsHeight).coerceAtLeast(76.dp)).padding(top = 76.dp).align(Alignment.TopCenter)
-        GalaxyParticleField(state.latestSample, signalMissing, paused,
-            galaxyModifier, state = galaxyMotion, continueWhenMissing = true)
+        GalaxyParticleField(state.latestSample, signalMissing, paused || !state.connected,
+            galaxyModifier, state = galaxyMotion, continueWhenMissing = state.connected)
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = HushSpace.xl, vertical = HushSpace.md)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -124,10 +123,6 @@ internal fun MeditationGalaxyScreen(
                         paused -> "Paused"
                         state.phase == SessionPhase.CONNECTING -> "Connecting…"
                         !state.connected -> "Reconnecting…"
-                        state.eegNotice == EegSignalStatus.LOW_QUALITY -> "Low signal quality"
-                        state.eegNotice == EegSignalStatus.INTERFERENCE -> "Signal settling…"
-                        state.eegNotice == EegSignalStatus.UNKNOWN -> "Checking signal…"
-                        state.eegNotice == EegSignalStatus.MISSING -> "Waiting for EEG…"
                         else -> null
                     }
                     status?.let { Text(it, color = HushColors.Muted, style = MaterialTheme.typography.labelMedium) }

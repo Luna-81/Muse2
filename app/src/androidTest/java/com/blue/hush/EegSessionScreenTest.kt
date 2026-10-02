@@ -57,18 +57,21 @@ class EegSessionScreenTest {
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         compose.onNodeWithText("Calibrating… 5/10").assertDoesNotExist()
         updateState { it.copy(eegNotice = EegSignalStatus.LOW_QUALITY) }
-        compose.onNodeWithText("Low signal quality").assertIsDisplayed()
+        compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
         updateState { it.copy(eegStatus = EegSignalStatus.INTERFERENCE, eegNotice = EegSignalStatus.INTERFERENCE) }
-        compose.onNodeWithText("Signal settling…").assertIsDisplayed()
+        compose.onNodeWithText("Signal settling…").assertDoesNotExist()
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         updateState { it.copy(eegStatus = EegSignalStatus.UNKNOWN, eegNotice = EegSignalStatus.UNKNOWN) }
-        compose.onNodeWithText("Checking signal…").assertIsDisplayed()
+        compose.onNodeWithText("Checking signal…").assertDoesNotExist()
         updateState { it.copy(eegStatus = EegSignalStatus.MISSING, eegNotice = EegSignalStatus.MISSING) }
-        compose.onNodeWithText("Waiting for EEG…").assertIsDisplayed()
+        compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         updateState { it.copy(connected = false) }
         compose.onNodeWithText("Reconnecting…").assertIsDisplayed()
+        val disconnectedPhase = motion.phase
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnIdle { assertEquals(disconnectedPhase, motion.phase, 0f) }
         updateState { it.copy(phase = SessionPhase.PAUSED) }
         compose.onNodeWithText("Paused").assertIsDisplayed()
     }

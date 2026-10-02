@@ -14,10 +14,12 @@ class GalaxyMotionTest {
         repeat(300) { motion.advance(1f / 60, 0.8f) }
         val agitation = motion.agitation
         val phase = motion.phase
+        val visibility = motion.visibility
         repeat(600) { motion.advance(1f / 60, null, continueWhenMissing = true) }
         assertTrue(motion.phase > phase)
         assertEquals(agitation, motion.agitation, 0f)
-        assertTrue(motion.visibility < 0.27f)
+        assertEquals(visibility, motion.visibility, 0f)
+        assertEquals(10f * (0.06f + agitation * 0.17f), motion.phase - phase, 0.0001f)
         val pausedPhase = motion.phase
         motion.advance(0f, null, continueWhenMissing = true)
         assertEquals(pausedPhase, motion.phase, 0f)
@@ -25,6 +27,19 @@ class GalaxyMotionTest {
         withoutMeasurement.advance(0.05f, null, continueWhenMissing = true)
         assertTrue(withoutMeasurement.phase > 0f)
         assertEquals(0f, withoutMeasurement.agitation, 0f)
+    }
+
+    @Test fun recordedGapKeepsThePreviousVisualWithoutCreatingCalmness() {
+        val trusted = StateSample(10, calmness = 0.7, valid = true, algorithmVersion = 5)
+        val gap = StateSample(11)
+        val motion = GalaxyMotion()
+        motion.showRecordedSample(gap, trusted)
+        assertEquals(galaxyAgitation(trusted)!!, motion.agitation, 0f)
+        assertEquals(1f, motion.visibility, 0f)
+        val phase = motion.phase
+        motion.advance(0.05f, galaxyAgitation(gap), continueWhenMissing = true)
+        assertEquals(0.05f * (0.06f + motion.agitation * 0.17f), motion.phase - phase, 0.000001f)
+        assertNull(gap.calmness)
     }
 
     @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {

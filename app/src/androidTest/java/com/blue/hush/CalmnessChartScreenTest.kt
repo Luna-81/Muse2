@@ -12,6 +12,8 @@ import com.blue.hush.session.*
 import com.blue.hush.ui.CalmnessChart
 import com.blue.hush.ui.MeditationGalaxyScreen
 import com.blue.hush.ui.SessionDetailScreen
+import com.blue.hush.ui.ParticlePanel
+import com.blue.hush.ui.GalaxyMotion
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushTheme
 import com.blue.hush.replay.ReplayCursor
@@ -28,6 +30,27 @@ class CalmnessChartScreenTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun sample(second: Int, value: Double?) = StateSample(second, 0.4, 0.3, 0.2, 0.9,
         valid = true, eegBandsAvailable = true, calmness = value, algorithmVersion = 1)
+
+    @Test fun recordedGapKeepsRotatingWithoutAnOverlay() {
+        compose.mainClock.autoAdvance = false
+        val gap = StateSample(2)
+        val motion = GalaxyMotion().apply { showRecordedSample(gap, sample(1, 0.7)) }
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { HushTheme { ParticlePanel(gap, dataGap = true, motion = motion, animate = true) } }
+        }
+        compose.mainClock.advanceTimeBy(32)
+        val phase = motion.phase
+        val agitation = motion.agitation
+        val visibility = motion.visibility
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnIdle {
+            assertTrue(motion.phase > phase)
+            assertEquals(agitation, motion.agitation, 0f)
+            assertEquals(visibility, motion.visibility, 0f)
+            assertNull(gap.calmness)
+        }
+        compose.onNodeWithText("Data gap").assertDoesNotExist()
+    }
 
     @Test fun replayChartSupportsTappingDraggingAndAccessibleSeekingThroughGaps() {
         val values = (1..100).map { sample(it, if (it == 50) null else 0.6) }
@@ -74,20 +97,26 @@ class CalmnessChartScreenTest {
     }
 
     @Test fun historyAddsCalmnessAndPreservesRelativeTrendsAndLegacyEmptyState() {
+        compose.mainClock.autoAdvance = false
         val values = mutableStateOf(listOf(sample(10, 0.7), sample(11, 0.8)))
         val summary = SessionSummary(1, 0, 11000, 600, 11, MusicTrack.MIST, ResultLabel.STEADY, 2, 2)
         compose.activity.runOnUiThread {
             compose.activity.setContent { HushTheme { SessionDetailScreen(summary, values.value, 0f, {}, {}) } }
         }
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Calmness"))
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
+        compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("Calmness").assertIsDisplayed()
         compose.onNodeWithContentDescription("Calmness trend, latest 80 out of 100").assertExists()
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Relative trends"))
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(3)
+        compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("Relative trends").assertIsDisplayed()
         compose.onNodeWithText("Alpha · Theta · Beta · Stillness").performScrollTo().assertIsDisplayed()
         saveScreenshot("calmness-history.png")
         compose.runOnIdle { values.value = values.value.map { it.copy(calmness = null, algorithmVersion = 0) } }
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("No calmness data"))
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
+        compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("No calmness data").performScrollTo().assertIsDisplayed()
     }
 

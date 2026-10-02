@@ -48,7 +48,7 @@ class MeditationGalaxyScreenTest {
         }
         compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeBy(12_000)
-        compose.onNodeWithText("18:55").assertIsDisplayed()
+        compose.onNodeWithText("08:55").assertIsDisplayed()
         compose.onNodeWithContentDescription("Pause").assertIsDisplayed()
         compose.onNodeWithText("Finish").performScrollTo().assertIsDisplayed()
         saveScreenshot("galaxy-calm.png")
@@ -80,7 +80,7 @@ class MeditationGalaxyScreenTest {
         compose.mainClock.advanceTimeByFrame()
         compose.runOnIdle { state.value = state.value.copy(elapsedSeconds = 66) }
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("Waiting for EEG…").assertIsDisplayed()
+        compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         compose.runOnIdle { state.value = state.value.copy(connected = false) }
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithText("Reconnecting…").assertIsDisplayed()
