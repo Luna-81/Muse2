@@ -62,7 +62,7 @@ s = 0.32801364656479376
 
 `b` is the median of the 10 participant feature medians. `s = max(1.4826 * median(per-participant median(abs(x-b))), 0.15)`. Participants have equal weight even with different valid recording lengths. These constants are compiled into `SignalRules`, not downloaded by the App. Repeated extraction produces identical report contents.
 
-New live and simulated samples use version 5 and `sigmoid(clamp((x-b)/s, -30, 30))`, followed by Calmness EMA 0.2. New sessions initialize both band and score smoothing; interruptions retain smoothing but require fresh live quality information. Missing values stay null. History remains unchanged and replays stored scores; database version remains 5. The simulation retains its original CSV and provides no heart rate.
+New live samples use version 5 and `sigmoid(clamp((x-b)/s, -30, 30))`, followed by Calmness EMA 0.2. New sessions initialize both band and score smoothing; interruptions retain smoothing but require fresh live quality information. Missing values stay null. History remains unchanged and replays stored scores; database version remains 5. The simulation replays the second-earliest recorded device session from `assets/history/second_earliest_session.json`, preserving its recorded version-5 Calmness, measured heart rate, and missing values without running the estimator again.
 
 ## Coursework interpretation
 

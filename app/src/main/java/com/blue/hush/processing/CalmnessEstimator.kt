@@ -37,7 +37,7 @@ internal fun List<Double>.median(): Double {
     return if (size % 2 == 0) (sorted[middle - 1] + sorted[middle]) / 2 else sorted[middle]
 }
 
-/** Shared by live processing and the known-good CSV; missing inputs never become defaults. */
+/** Scores trusted live EEG; recorded replay retains its original scores and missing values. */
 class CalmnessEstimator(private val smoothingFactor: Double = SignalRules.SMOOTHING) {
     private var smoothed: Double? = null
 

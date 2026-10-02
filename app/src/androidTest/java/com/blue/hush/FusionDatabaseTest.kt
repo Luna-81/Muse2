@@ -59,17 +59,22 @@ class FusionDatabaseTest {
         } finally { ctx.deleteDatabase("hush.db") }
     }
 
-    @Test fun loadingSimulationDoesNotCreateHistoryAndNewSimulationPersistsWithoutHeartRate() {
+    @Test fun simulationUsesSecondEarliestSessionAndPreservesHeartRateScoresAndGaps() {
         val ctx = context
         ctx.deleteDatabase("hush.db")
         try {
             var id = 0L
             val replay = MuseReplaySource.load(ctx)
             assertTrue(MuseReplaySource.isUsable(replay))
-            assertTrue(replay.all { it.algorithmVersion == 5 && it.heartRateBpm == null })
-            assertTrue(replay.all { it.calmness != null })
-            val estimator = com.blue.hush.processing.CalmnessEstimator()
-            assertEquals(replay.map { it.calmness }, replay.map { estimator.process(it).calmness })
+            assertTrue(replay.all { it.algorithmVersion == 5 })
+            assertEquals(264, replay.count { it.heartRateBpm != null })
+            assertEquals(55, replay.count { it.calmness == null })
+            HushDatabase(ctx).use { database ->
+                database.restoreBundledHistory(ctx)
+                val secondEarliest = database.loadSummaries().sortedBy { it.startedAt }[1]
+                assertEquals(replay, database.loadSamples(secondEarliest.id))
+                database.loadSummaries().forEach { database.deleteSession(it.id) }
+            }
             HushDatabase(ctx).use { database ->
                 assertTrue(database.loadSummaries().isEmpty())
                 id = database.insertSession(1000, 600, MusicTrack.RAIN)
@@ -80,11 +85,12 @@ class FusionDatabaseTest {
                 val stored = database.loadSamples(id)
                 assertEquals(replay, stored)
                 assertEquals(listOf(id), database.loadSummaries().map { it.id })
-                assertEquals(600, database.loadSummaries().single().resultSampleCount)
+                assertEquals(545, database.loadSummaries().single().resultSampleCount)
                 val metrics = com.blue.hush.processing.SessionScoreCalculator.calculate(stored)
                 assertNotNull(metrics.calm)
                 assertNotNull(metrics.stability)
-                assertNull(metrics.heartRateBpm)
+                assertNotNull(metrics.heartRateBpm)
+                assertEquals(com.blue.hush.processing.SessionScoreCalculator.calculate(replay), metrics)
                 database.deleteSession(id)
             }
             HushDatabase(ctx).use { database ->

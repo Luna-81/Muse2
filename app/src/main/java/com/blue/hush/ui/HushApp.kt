@@ -118,11 +118,7 @@ fun HushApp(
                     item { Text("A moment of stillness", style = MaterialTheme.typography.titleMedium) }
                     item { HushPanel(Modifier.fillMaxWidth(), compact = true) {
                         Text("DURATION", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                            listOf(10, 20, 30).forEach { minutes -> FilterChip(selected = selectedDurationSeconds == minutes * 60,
-                                onClick = { onDurationSelected(minutes * 60) }, enabled = !connectionState.simulationMode || minutes == 10,
-                                label = { Text("$minutes min") }, modifier = Modifier.weight(1f)) }
-                        }
+                        DurationSelector(selectedDurationSeconds, connectionState.simulationMode, onDurationSelected)
                         TextButton(onClick = { musicSheet = true }, modifier = Modifier.fillMaxWidth()) { Text("Soundscape · ${selectedTrack.title}") }
                         Text(connectionState.status, style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
                         PrimaryAction(if (connectionState.ready) "Start meditation" else "Connect Muse", {

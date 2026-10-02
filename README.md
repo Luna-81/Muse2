@@ -4,9 +4,9 @@ Hush is an Android meditation app for Muse 2. Trusted Alpha, Theta, and Beta mea
 
 Algorithm version 5 maps the typical CogWear resting reference to 50, using baseline `0.76507906870225273` and scale `0.32801364656479376`. There is no per-session calibration or network requirement. The reference uses 10 pilot participants; participant 3 has no published baseline EEG and is explicitly excluded. Reproduce it with `python tools/cogwear_reference.py` (Python 3.9+, standard library only). Downloads go to ignored `research-data/cogwear/`, and statistics to `docs/cogwear-reference-results.json`. See [data processing and results](docs/eeg-reference-dataset.md); targeted script tests run with `python -m unittest discover -s tools -p 'test_cogwear_reference.py'`. Existing history retains its recorded values and the database remains version 5.
 
-The bundled ten-minute simulation exercises timing, storage, summaries, and replay without a headband or Bluetooth permission. Loading it does not create a History entry; running a simulation saves an ordinary session. Its CSV has no heart rate, so simulated Heart Rate remains unavailable.
+The bundled ten-minute simulation exercises timing, storage, summaries, and replay without a headband or Bluetooth permission. Loading it does not create a History entry; running a simulation saves an ordinary session. It replays the second-earliest device recording from `app/src/main/assets/history/second_earliest_session.json`, retaining measured heart rate, Calmness, stillness, and signal gaps. The two earliest original sessions are bundled as separate JSON files and restored if missing on a cold app restart; ordinary simulated runs are not restored after deletion.
 
-**History reset:** upgrading a database from version 1-4 to version 5 permanently deletes all existing sessions and samples, including unfinished sessions and the former `Saved simulation` entry. This happens once during the transactional upgrade. Subsequent launches preserve new history; simulation history is no longer automatically imported or restored. Connection preferences and other settings are unchanged.
+**History reset:** upgrading a database from version 1-4 to version 5 permanently deletes all existing sessions and samples, including unfinished sessions and the former `Saved simulation` entry. This happens once during the transactional upgrade. Subsequent launches preserve new history; ordinary simulation runs are not automatically imported or restored; the two explicitly bundled original snapshots are restored separately at startup. Connection preferences and other settings are unchanged.
 
 ## Build
 
@@ -25,7 +25,7 @@ The LibMuse 8.0.9 JAR and native libraries are checked in. No SDK download or ac
 - `storage/`: local SQLite sessions and downsampled samples.
 - `replay/`: bundled simulation source and history replay cursor.
 - `ui/`: Compose routes, reusable components, theme tokens, and the shared Canvas galaxy renderer.
-- `assets/simulation/`: checked-in ten-minute replay CSV.
+- `assets/history/`: two separate recorded session snapshots; the second-earliest also supplies the ten-minute simulation.
 - `audio/` and `res/raw/`: offline, looping Rain, Ocean, and Fireplace field recordings.
 - `MainActivity.kt`: permissions, idle discovery, route state, and service handoff.
 - `app/src/test/` and `app/src/androidTest/`: JVM and device/Compose coverage.

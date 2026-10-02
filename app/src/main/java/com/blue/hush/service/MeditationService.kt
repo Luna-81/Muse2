@@ -22,6 +22,7 @@ import com.blue.hush.processing.SignalProcessor
 import com.blue.hush.replay.MuseReplaySource
 import com.blue.hush.session.MusicTrack
 import com.blue.hush.session.SessionClock
+import com.blue.hush.session.SessionDuration
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionRuntime
 import com.blue.hush.session.SessionState
@@ -45,7 +46,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private var desiredMacAddress: String = ""
     private var desiredDeviceName: String = "Muse 2"
     private var sessionId: Long? = null
-    private var plannedSeconds = 20 * 60
+    private var plannedSeconds = SessionDuration.DEFAULT_SECONDS
     private var selectedTrack = MusicTrack.RAIN
     private var currentVolume = 0.7f
     private var isConnecting = false
@@ -205,7 +206,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         plannedSeconds = if (simulationMode) {
             MuseReplaySource.DURATION_SECONDS
         } else {
-            intent.getIntExtra(EXTRA_PLANNED_SECONDS, 20 * 60).coerceIn(10 * 60, 30 * 60)
+            intent.getIntExtra(EXTRA_PLANNED_SECONDS, SessionDuration.DEFAULT_SECONDS)
+                .coerceIn(SessionDuration.MIN_MINUTES * 60, SessionDuration.MAX_MINUTES * 60)
         }
         selectedTrack = intent.getStringExtra(EXTRA_TRACK)?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
             ?: MusicTrack.RAIN

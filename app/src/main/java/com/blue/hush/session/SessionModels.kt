@@ -60,7 +60,7 @@ enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, INTERFERENCE, UNKNOWN, MISS
 data class SessionState(
     val phase: SessionPhase = SessionPhase.IDLE,
     val sessionId: Long? = null,
-    val plannedSeconds: Int = 20 * 60,
+    val plannedSeconds: Int = SessionDuration.DEFAULT_SECONDS,
     val elapsedSeconds: Int = 0,
     val connected: Boolean = false,
     val deviceName: String = "",

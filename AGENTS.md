@@ -50,14 +50,14 @@ app/src/main/
 │   ├── audio/                      # bundled nature recording playback
 │   ├── muse/                       # LibMuse adapter and idle auto-connect policy
 │   ├── processing/                 # packet aggregation, smoothing, result classification
-│   ├── replay/                     # bundled CSV source and history replay cursor
+│   ├── replay/                     # recorded simulation source and history replay cursor
 │   ├── service/                    # foreground session owner and reconnect flow
 │   ├── session/                    # session state, clock, samples, and shared runtime
 │   ├── storage/                    # SQLite sessions and per-second samples
 │   └── ui/
 │       ├── theme/                  # colors, typography, spacing, shapes, motion
 │       └── ...                     # routes, reusable components, galaxy renderer
-├── assets/simulation/              # checked-in ten-minute Muse replay CSV
+├── assets/history/                 # separate recorded sessions; second-earliest supplies simulation
 ├── jniLibs/                        # LibMuse native libraries
 └── res/                            # Android resources and backup rules
 

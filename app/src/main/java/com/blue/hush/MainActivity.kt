@@ -24,6 +24,7 @@ import com.blue.hush.muse.AutoConnectPolicy
 import com.blue.hush.replay.MuseReplaySource
 import com.blue.hush.service.MeditationService
 import com.blue.hush.session.MusicTrack
+import com.blue.hush.session.SessionDuration
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionRuntime
 import com.blue.hush.session.SessionSummary
@@ -45,7 +46,7 @@ class MainActivity : ComponentActivity() {
     private var sessionState by mutableStateOf(SessionRuntime.current)
     private var history by mutableStateOf<List<SessionSummary>>(emptyList())
     private var activeTab by mutableStateOf(AppTab.MEDITATE)
-    private var selectedDurationSeconds by mutableIntStateOf(20 * 60)
+    private var selectedDurationSeconds by mutableIntStateOf(SessionDuration.DEFAULT_SECONDS)
     private var selectedTrack by mutableStateOf(MusicTrack.RAIN)
     private var detailSummary by mutableStateOf<SessionSummary?>(null)
     private var detailSamples by mutableStateOf<List<StateSample>>(emptyList())
@@ -131,7 +132,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activeTab = savedInstanceState?.getString("tab")?.let { runCatching { AppTab.valueOf(it) }.getOrNull() } ?: AppTab.MEDITATE
-        selectedDurationSeconds = savedInstanceState?.getInt("duration", 1200) ?: 1200
+        selectedDurationSeconds = (savedInstanceState?.getInt("duration", SessionDuration.DEFAULT_SECONDS)
+            ?: SessionDuration.DEFAULT_SECONDS).coerceIn(SessionDuration.MIN_MINUTES * 60, SessionDuration.MAX_MINUTES * 60)
         selectedTrack = savedInstanceState?.getString("track")?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
             ?.takeIf { it in MusicTrack.soundscapes } ?: MusicTrack.RAIN
         connectionStateUi = connectionStateUi.copy(simulationMode = savedInstanceState?.getBoolean("simulation") ?: false)
