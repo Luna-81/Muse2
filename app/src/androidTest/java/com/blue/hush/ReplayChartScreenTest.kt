@@ -32,6 +32,80 @@ class ReplayChartScreenTest {
         valid = true, eegBandsAvailable = second != 50, heartRateBpm = 110.0,
         calmness = if (second == 50) null else 0.5, algorithmVersion = 5) }
 
+    @Test fun playbackRunsAtThirtyTimesPausesAndRestartsAfterEnd() {
+        compose.mainClock.autoAdvance = false
+        val cursor = ReplayCursor(values)
+        val progress = mutableStateOf(0f)
+        compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
+            ReplayChart(values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
+                { _, _ -> }, { progress.value = cursor.progressAtSecond(it) })
+        } } }
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithText("30×").assertExists()
+        val title = compose.onNodeWithText("Replay").fetchSemanticsNode().boundsInRoot
+        val time = compose.onNodeWithText("00:01").fetchSemanticsNode().boundsInRoot
+        assertTrue(kotlin.math.abs(title.center.y - time.center.y) < 2f)
+        compose.onNodeWithContentDescription("Play replay").performClick()
+        compose.mainClock.advanceTimeBy(64)
+        var before = 0
+        compose.runOnIdle { before = cursor.sampleAt(progress.value)!!.elapsedSeconds }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds - before in 29..31) }
+        compose.onNodeWithContentDescription("Pause replay").performClick()
+        compose.mainClock.advanceTimeBy(32)
+        var paused = 0
+        compose.runOnIdle { paused = cursor.sampleAt(progress.value)!!.elapsedSeconds }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnIdle { assertEquals(paused, cursor.sampleAt(progress.value)!!.elapsedSeconds) }
+        compose.onNodeWithContentDescription("Play replay").performClick()
+        compose.mainClock.advanceTimeBy(4000)
+        compose.runOnIdle { assertEquals(100, cursor.sampleAt(progress.value)!!.elapsedSeconds) }
+        compose.onNodeWithContentDescription("Play replay").assertExists().performClick()
+        compose.mainClock.advanceTimeBy(64)
+        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds < 5) }
+        compose.onNodeWithContentDescription("Session replay").performSemanticsAction(SemanticsActions.SetProgress) { it(50f) }
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithContentDescription("Play replay").assertExists()
+        compose.mainClock.advanceTimeBy(500)
+        compose.runOnIdle { assertEquals(50, cursor.sampleAt(progress.value)!!.elapsedSeconds) }
+    }
+
+    @Test fun emptyReplayDisablesPlayback() {
+        compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
+            ReplayChart(emptyList(), 0, null, ReplayMetric.entries.toSet(), { _, _ -> }, {})
+        } } }
+        compose.onNodeWithContentDescription("Play replay").assertIsNotEnabled()
+    }
+
+    @Test fun autoplayWaitsForSamplesAndStartsAgainWhenPageReopens() {
+        compose.mainClock.autoAdvance = false
+        val loaded = mutableStateOf(false)
+        val open = mutableStateOf(true)
+        val progress = mutableStateOf(0f)
+        val cursor = ReplayCursor(values)
+        compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
+            if (open.value) ReplayChart(if (loaded.value) values else emptyList(), 100,
+                if (loaded.value) cursor.sampleAt(progress.value) else null, ReplayMetric.entries.toSet(),
+                { _, _ -> }, { progress.value = cursor.progressAtSecond(it) }, autoPlay = true)
+        } } }
+        compose.mainClock.advanceTimeBy(64)
+        compose.onNodeWithContentDescription("Play replay").assertIsNotEnabled()
+        compose.runOnIdle { loaded.value = true }
+        compose.mainClock.advanceTimeBy(128)
+        compose.onNodeWithContentDescription("Pause replay").assertExists().performClick()
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithContentDescription("Play replay").assertExists()
+        compose.runOnIdle { open.value = false }
+        compose.mainClock.advanceTimeBy(32)
+        compose.runOnIdle { open.value = true }
+        compose.mainClock.advanceTimeBy(128)
+        compose.onNodeWithContentDescription("Pause replay").assertExists()
+        var before = 0
+        compose.runOnIdle { before = cursor.sampleAt(progress.value)!!.elapsedSeconds }
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds - before in 29..31) }
+    }
+
     @Test fun pinchZoomAndTwoFingerPanPreserveSelectionAndRemapSingleFingerSeeking() {
         val cursor = ReplayCursor(values)
         val progress = mutableStateOf(cursor.progressAtSecond(50f))
@@ -136,6 +210,9 @@ class ReplayChartScreenTest {
         compose.mainClock.advanceTimeBy(32)
         fun toggle() = compose.onNode(hasText("Alpha") and isToggleable())
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
+        compose.mainClock.advanceTimeBy(64)
+        compose.onNodeWithContentDescription("Pause replay").performClick()
+        compose.mainClock.advanceTimeBy(32)
         toggle().performScrollTo().performClick()
         compose.mainClock.advanceTimeBy(32)
         toggle().assertIsOff()

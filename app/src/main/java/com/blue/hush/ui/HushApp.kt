@@ -252,7 +252,7 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
         samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
     }
     Page("Session details", onBack) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = HushSpace.xs, bottom = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                     Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
@@ -270,14 +270,14 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
             } }
             item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
                 contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.lg)) {
-                Text("Replay", style = MaterialTheme.typography.titleMedium)
                 key(summary.id) {
                     ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
                         onMetricChanged = { metric, checked ->
                             val bit = 1 shl metric.ordinal
                             visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
                         },
-                        onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) })
+                        onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) },
+                        autoPlay = true)
                 }
             } }
         }

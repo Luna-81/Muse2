@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -31,6 +32,9 @@ import kotlin.math.roundToInt
 import com.blue.hush.session.StateSample
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushSpace
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 private val ReplayMetric.color: Color
     get() = when (this) {
@@ -47,6 +51,7 @@ internal fun ReplayChart(
     samples: List<StateSample>, elapsedSeconds: Int, selectedSample: StateSample?,
     visibleMetrics: Set<ReplayMetric>, onMetricChanged: (ReplayMetric, Boolean) -> Unit,
     onReplaySecondSelected: (Float) -> Unit,
+    autoPlay: Boolean = false,
 ) {
     val onSeek by rememberUpdatedState(onReplaySecondSelected)
     val currentSelectedSample by rememberUpdatedState(selectedSample)
@@ -62,10 +67,72 @@ internal fun ReplayChart(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall
+    var playing by remember { mutableStateOf(false) }
+    var playbackStart by remember { mutableFloatStateOf(0f) }
+    val playbackEnd = minOf(elapsedSeconds, samples.lastOrNull()?.elapsedSeconds ?: 0)
+    val canPlay = samples.size > 1 && playbackEnd > (samples.firstOrNull()?.elapsedSeconds ?: 0)
+    var autoStarted by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(autoPlay, canPlay) {
+        if (autoPlay && canPlay && !autoStarted) {
+            autoStarted = true
+            playbackStart = (currentSelectedSample?.elapsedSeconds ?: samples.first().elapsedSeconds).toFloat()
+            if (playbackStart >= playbackEnd) playbackStart = samples.first().elapsedSeconds.toFloat()
+            onSeek(playbackStart)
+            playing = true
+        }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) playing = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(playing, samples, playbackEnd) {
+        if (!playing || !canPlay) return@LaunchedEffect
+        val startedAt = withFrameNanos { it }
+        while (playing) {
+            val now = withFrameNanos { it }
+            // A manual seek can pause between frame request and coroutine cancellation.
+            if (!playing) break
+            val second = (playbackStart + (now - startedAt) / 1_000_000_000f * 30f).coerceAtMost(playbackEnd.toFloat())
+            updateViewport(currentViewport().reveal(second, elapsedSeconds))
+            onSeek(second)
+            if (second >= playbackEnd) playing = false
+        }
+    }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Relative level", style = labelStyle, color = HushColors.Muted)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.xs),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Replay", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text("Relative level", modifier = Modifier.weight(1f), style = labelStyle,
+                color = HushColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(formatDuration(selectedSample?.elapsedSeconds ?: 0), style = labelStyle, color = HushColors.Accent)
+            IconButton(onClick = {
+                if (playing) playing = false else {
+                    playbackStart = (currentSelectedSample?.elapsedSeconds ?: 0).toFloat()
+                    if (playbackStart >= playbackEnd) playbackStart = samples.first().elapsedSeconds.toFloat()
+                    onSeek(playbackStart)
+                    playing = true
+                }
+            }, enabled = canPlay, modifier = Modifier.size(48.dp).semantics {
+                contentDescription = if (playing) "Pause replay" else "Play replay"
+            }) {
+                Canvas(Modifier.size(20.dp)) {
+                    val color = if (canPlay) HushColors.Accent else HushColors.Muted
+                    if (playing) {
+                        drawRect(color, size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height))
+                        drawRect(color, topLeft = Offset(size.width * 0.7f, 0f),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height))
+                    } else {
+                        drawPath(Path().apply {
+                            moveTo(0f, 0f); lineTo(size.width, size.height / 2); lineTo(0f, size.height); close()
+                        }, color)
+                    }
+                }
+            }
+            Text("30×", style = labelStyle, color = HushColors.Muted)
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val inset = with(density) { 8.dp.toPx() }
@@ -95,6 +162,7 @@ internal fun ReplayChart(
                     )
                     if (samples.isNotEmpty()) setProgress { value ->
                         if (!value.isFinite()) false else {
+                            playing = false
                             updateViewport(currentViewport().reveal(value, elapsedSeconds))
                             onSeek(value.coerceIn(0f, elapsedSeconds.coerceAtLeast(0).toFloat()))
                             true
@@ -112,7 +180,10 @@ internal fun ReplayChart(
                 }.pointerInput(elapsedSeconds, samples.isNotEmpty()) {
                     if (samples.isEmpty()) return@pointerInput
                     val width = (size.width - 2 * inset).coerceAtLeast(1f)
-                    fun seek(x: Float) = onSeek(currentViewport().secondAt((x - inset) / width, elapsedSeconds))
+                    fun seek(x: Float) {
+                        playing = false
+                        onSeek(currentViewport().secondAt((x - inset) / width, elapsedSeconds))
+                    }
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val cursorFraction = currentSelectedSample?.let {
