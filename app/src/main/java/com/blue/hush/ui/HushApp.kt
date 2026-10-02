@@ -111,20 +111,15 @@ fun HushApp(
                 LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(horizontal = HushSpace.lg, vertical = HushSpace.sm), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                     item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Hush", style = MaterialTheme.typography.headlineLarge)
-                        TextButton(onClick = { deviceSheet = true }) { Text(if (connectionState.ready) connectionState.status else "Muse 2") }
+                        MusicButton(selectedTrack.title, onClick = { musicSheet = true })
                     } }
                     item { GalaxyParticleField(null, dataGap = false, paused = false,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), state = galaxyMotion, preview = true) }
                     item { Text("A moment of stillness", style = MaterialTheme.typography.titleMedium) }
-                    item { HushPanel(Modifier.fillMaxWidth(), compact = true) {
-                        Text("DURATION", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
-                        DurationSelector(selectedDurationSeconds, connectionState.simulationMode, onDurationSelected)
-                        TextButton(onClick = { musicSheet = true }, modifier = Modifier.fillMaxWidth()) { Text("Soundscape · ${selectedTrack.title}") }
-                        Text(connectionState.status, style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
-                        PrimaryAction(if (connectionState.ready) "Start meditation" else "Connect Muse", {
+                    item { SessionPreparationPanel(selectedDurationSeconds, connectionState,
+                        onDurationSelected, onDeviceSelected = { deviceSheet = true }, onStart = {
                             if (connectionState.ready) onStartSession() else { deviceSheet = true; onStartScanning() }
-                        })
-                    } }
+                        }) }
                 }
             } else HistoryScreen(history, onOpenDetail, onDeleteSession)
         }

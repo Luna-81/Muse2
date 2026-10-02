@@ -35,7 +35,7 @@ class HushAppScreenTest {
             compose.activity.setContent {
                 var tab by remember { mutableStateOf(AppTab.MEDITATE) }
                 var track by remember { mutableStateOf(MusicTrack.RAIN) }
-                var duration by remember { mutableIntStateOf(1200) }
+                var duration by remember { mutableIntStateOf(SessionDuration.DEFAULT_SECONDS) }
                 var detail by remember { mutableStateOf<SessionSummary?>(null) }
                 var connection by remember { mutableStateOf(ConnectionUiState(simulationDataAvailable = true)) }
                 val density = LocalDensity.current
@@ -68,7 +68,7 @@ class HushAppScreenTest {
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithText("Hush").assertIsDisplayed()
         saveScreenshot("hush-home.png")
-        compose.onNodeWithText("Soundscape · Rain").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("Soundscape · Rain").performScrollTo().performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(500)
@@ -76,14 +76,14 @@ class HushAppScreenTest {
         compose.onAllNodesWithText("Select")[0].performScrollTo().performClick()
         androidx.test.espresso.Espresso.pressBack()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithText("Soundscape · Ocean").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Soundscape · Ocean").assertIsDisplayed()
         compose.runOnIdle { assertEquals(1, previewStops) }
         compose.onNodeWithText("Connect Muse").performScrollTo().performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithContentDescription("Use saved simulation data").performScrollTo().performClick()
         androidx.test.espresso.Espresso.pressBack()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithText("20 min").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Duration in minutes").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Start meditation").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(1, starts) }
         compose.onNodeWithText("History").performClick()

@@ -1,24 +1,22 @@
 package com.blue.hush.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.blue.hush.session.SessionDuration
 import com.blue.hush.ui.theme.*
@@ -28,83 +26,65 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
-internal fun DurationSelector(seconds: Int, simulationMode: Boolean, onSelected: (Int) -> Unit) {
-    var customMinutes by rememberSaveable { mutableIntStateOf(if (seconds / 60 !in listOf(5, 10)) seconds / 60 else 15) }
-    var customSelected by rememberSaveable { mutableStateOf(false) }
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = customMinutes - SessionDuration.MIN_MINUTES)
+internal fun DurationSelector(seconds: Int, simulationMode: Boolean, onSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val initialMinutes = (seconds / 60).coerceIn(SessionDuration.MIN_MINUTES, SessionDuration.MAX_MINUTES)
+    val state = rememberLazyListState(initialFirstVisibleItemIndex = initialMinutes - SessionDuration.MIN_MINUTES)
     val scope = rememberCoroutineScope()
     val currentOnSelected by rememberUpdatedState(onSelected)
     val currentSimulationMode by rememberUpdatedState(simulationMode)
-    val rowHeight = 48.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val rowHeight = 64.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val timeStyle = MaterialTheme.typography.displayLarge
+    val textMeasurer = rememberTextMeasurer()
+    val timeWidth = with(LocalDensity.current) {
+        textMeasurer.measure(AnnotatedString("00:00"), style = timeStyle).size.width.toDp()
+    }
     val selectedIndex by remember {
         derivedStateOf {
             val layout = state.layoutInfo
             val center = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
             layout.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2 - center) }?.index
-                ?: (customMinutes - SessionDuration.MIN_MINUTES)
+                ?: (initialMinutes - SessionDuration.MIN_MINUTES)
         }
     }
+    val minutes = selectedIndex + SessionDuration.MIN_MINUTES
     LaunchedEffect(state) {
-        // Initial layout must not override a preset; only wheel changes select a custom duration.
+        // Layout alone must not send a duration change during state restoration.
         snapshotFlow { selectedIndex }.drop(1).collect { index ->
-            customMinutes = index + SessionDuration.MIN_MINUTES
-            if (!currentSimulationMode) {
-                customSelected = true
-                currentOnSelected(customMinutes * 60)
-            }
+            if (!currentSimulationMode) currentOnSelected((index + SessionDuration.MIN_MINUTES) * 60)
         }
     }
     LaunchedEffect(simulationMode) {
-        if (simulationMode) { state.stopScroll(); customSelected = false }
-    }
-    val isCustom = !simulationMode && (customSelected || seconds / 60 !in listOf(5, 10))
-    val wheelColor = when {
-        simulationMode -> HushColors.Muted.copy(alpha = 0.38f)
-        isCustom -> HushColors.Accent
-        else -> HushColors.Text
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.sm), verticalAlignment = Alignment.CenterVertically) {
-        listOf(5, 10).forEach { minutes ->
-            FilterChip(selected = !isCustom && seconds == minutes * 60,
-                onClick = { scope.launch { state.stopScroll(); customSelected = false; currentOnSelected(minutes * 60) } },
-                enabled = !simulationMode || minutes == 10,
-                label = { Text("$minutes min") }, modifier = Modifier.weight(1f).height(rowHeight))
+        if (simulationMode) {
+            state.stopScroll()
+            state.scrollToItem(10 - SessionDuration.MIN_MINUTES)
         }
-        Box(Modifier.weight(1f).height(rowHeight).clip(HushShapes.Control)
-            .background(if (isCustom) HushColors.SurfaceRaised else HushColors.Surface)
-            .border(1.dp, if (isCustom) HushColors.SurfaceRaised else HushColors.Border, HushShapes.Control)) {
+    }
+    val wheelColor = HushColors.Text
+    Box(modifier.height(rowHeight), contentAlignment = Alignment.Center) {
+        Box(Modifier.width(timeWidth + 20.dp).fillMaxHeight()) {
             LazyColumn(state = state, flingBehavior = rememberSnapFlingBehavior(state), userScrollEnabled = !simulationMode,
                 modifier = Modifier.fillMaxSize().clearAndSetSemantics {
-                    contentDescription = "Custom duration"
-                    stateDescription = "$customMinutes min"
-                    selected = isCustom
+                    contentDescription = "Duration in minutes"
+                    stateDescription = "$minutes min"
                     if (simulationMode) disabled() else {
-                        onClick { customSelected = true; currentOnSelected(customMinutes * 60); true }
-                        progressBarRangeInfo = ProgressBarRangeInfo(customMinutes.toFloat(),
+                        progressBarRangeInfo = ProgressBarRangeInfo(minutes.toFloat(),
                             SessionDuration.MIN_MINUTES.toFloat()..SessionDuration.MAX_MINUTES.toFloat(),
                             SessionDuration.MAX_MINUTES - SessionDuration.MIN_MINUTES - 1)
                         setProgress { value ->
                             val target = value.roundToInt().coerceIn(SessionDuration.MIN_MINUTES, SessionDuration.MAX_MINUTES)
-                            scope.launch {
-                                state.animateScrollToItem(target - SessionDuration.MIN_MINUTES)
-                                customSelected = true
-                                currentOnSelected(target * 60)
-                            }
+                            scope.launch { state.animateScrollToItem(target - SessionDuration.MIN_MINUTES) }
                             true
                         }
                     }
                 }) {
                 items(SessionDuration.MAX_MINUTES - SessionDuration.MIN_MINUTES + 1, key = { it }) { index ->
-                    val minutes = index + SessionDuration.MIN_MINUTES
-                    Box(Modifier.fillMaxWidth().height(rowHeight).clickable(enabled = !simulationMode) {
-                        customSelected = true
-                        currentOnSelected(minutes * 60)
-                    }.padding(start = HushSpace.xs, end = 20.dp), contentAlignment = Alignment.Center) {
-                        Text("$minutes min", style = MaterialTheme.typography.bodyMedium, color = wheelColor)
+                    Box(Modifier.fillMaxWidth().height(rowHeight).padding(end = 20.dp), contentAlignment = Alignment.CenterStart) {
+                        Text(String.format(java.util.Locale.US, "%02d:00", index + SessionDuration.MIN_MINUTES),
+                            style = timeStyle, color = wheelColor)
                     }
                 }
             }
-            Canvas(Modifier.align(Alignment.CenterEnd).padding(end = 7.dp).width(8.dp).height(22.dp)) {
+            Canvas(Modifier.align(Alignment.CenterEnd).width(8.dp).height(22.dp)) {
                 val stroke = 1.5.dp.toPx()
                 fun chevron(top: Float, upwards: Boolean) {
                     val tip = if (upwards) top else top + size.width / 2
