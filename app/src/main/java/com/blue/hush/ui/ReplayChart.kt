@@ -52,6 +52,8 @@ internal fun ReplayChart(
     visibleMetrics: Set<ReplayMetric>, onMetricChanged: (ReplayMetric, Boolean) -> Unit,
     onReplaySecondSelected: (Float) -> Unit,
     autoPlay: Boolean = false,
+    showMetricControls: Boolean = true,
+    scaleLabel: String = "Relative level",
 ) {
     val onSeek by rememberUpdatedState(onReplaySecondSelected)
     val currentSelectedSample by rememberUpdatedState(selectedSample)
@@ -106,7 +108,7 @@ internal fun ReplayChart(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.xs),
             verticalAlignment = Alignment.CenterVertically) {
             Text("Replay", style = MaterialTheme.typography.titleSmall, maxLines = 1)
-            Text("Relative level", modifier = Modifier.weight(1f), style = labelStyle,
+            Text(scaleLabel, modifier = Modifier.weight(1f), style = labelStyle,
                 color = HushColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(formatDuration(selectedSample?.elapsedSeconds ?: 0), style = labelStyle, color = HushColors.Accent)
             IconButton(onClick = {
@@ -299,7 +301,7 @@ internal fun ReplayChart(
             Text(formatDuration((viewport.start * elapsedSeconds).roundToInt()), style = labelStyle, color = HushColors.Muted)
             Text(formatDuration((viewport.end * elapsedSeconds).roundToInt()), style = labelStyle, color = HushColors.Muted)
         }
-        listOf(
+        if (showMetricControls) listOf(
             listOf(ReplayMetric.CALMNESS, ReplayMetric.STABILITY, ReplayMetric.HEART_RATE),
             listOf(ReplayMetric.ALPHA, ReplayMetric.THETA, ReplayMetric.BETA),
         ).forEach { rowMetrics ->

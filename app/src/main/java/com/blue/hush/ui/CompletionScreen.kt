@@ -6,7 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -16,6 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.blue.hush.session.SessionScores
 import com.blue.hush.session.SessionState
+import com.blue.hush.replay.ReplayCursor
 import com.blue.hush.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -25,17 +27,42 @@ internal fun CompletionScreen(
     onShowResults: () -> Unit, onDismissResults: () -> Unit, onBack: () -> Unit,
     detailAvailable: Boolean, onDetails: () -> Unit,
 ) {
+    val samples = state.trendSamples
+    val cursor = remember(samples) { ReplayCursor(samples) }
+    var replayProgress by rememberSaveable(state.sessionId) { mutableFloatStateOf(1f) }
+    var replayStarted by rememberSaveable(state.sessionId) { mutableStateOf(false) }
+    val sample = cursor.sampleAt(replayProgress)
+    val retainedSample = remember(samples, sample) {
+        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
+    }
     Page("Finished", onBack) {
-        BoxWithConstraints(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize()) {
-            // Leave room above the sheet for the full-session chart on portrait screens.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
             val visualHeight = (maxHeight * 0.34f).coerceIn(120.dp, 440.dp)
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(HushSpace.lg),
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = HushSpace.lg),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-                item { ParticlePanel(state.latestSample, state.latestSample?.valid != true, motion, maxHeight = visualHeight) }
-                item { HushPanel(Modifier.fillMaxWidth()) {
-                    CalmnessChart(state.trendSamples, state.elapsedSeconds, plotHeight = 96.dp)
+                item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.lg)) {
+                        if (replayStarted) ParticlePanel(sample, sample?.valid != true,
+                            maxHeight = visualHeight, animate = true, retainedSample = retainedSample)
+                        else ParticlePanel(state.latestSample, state.latestSample?.valid != true, motion, maxHeight = visualHeight)
+                    }
                 } }
-                item { PrimaryAction("Results", onShowResults) }
+                item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+                    contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
+                    key(state.sessionId) {
+                        ReplayChart(samples, state.elapsedSeconds, sample, setOf(ReplayMetric.CALMNESS),
+                            onMetricChanged = { _, _ -> },
+                            onReplaySecondSelected = { second ->
+                                replayStarted = true
+                                replayProgress = cursor.progressAtSecond(second)
+                            },
+                            autoPlay = true, showMetricControls = false, scaleLabel = "Calmness")
+                    }
+                } }
+                item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    PrimaryAction("Results", onShowResults,
+                        Modifier.widthIn(max = HushSpace.contentWidth).padding(horizontal = HushSpace.lg))
+                } }
             }
         }
     }
@@ -61,7 +88,7 @@ internal fun CompletionScreen(
 @Composable
 internal fun SessionScoreSummary(seconds: Int, scores: SessionScores, compact: Boolean = false) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-        if (!compact) Column {
+        if (!compact) Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Total Time", style = MaterialTheme.typography.labelLarge, color = HushColors.Muted)
             Text(formatDuration(seconds), style = MaterialTheme.typography.displayLarge)
         }
