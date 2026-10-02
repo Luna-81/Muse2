@@ -450,7 +450,6 @@ class MainActivity : ComponentActivity() {
         ioExecutor.execute {
             val samples = MuseReplaySource.load(applicationContext)
             val available = MuseReplaySource.isUsable(samples)
-            if (available) database.ensureBundledSimulation(samples)
             val summaries = database.loadSummaries()
             mainHandler.post {
                 if (isDestroyed) return@post

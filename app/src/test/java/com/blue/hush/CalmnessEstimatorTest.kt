@@ -20,7 +20,7 @@ class CalmnessEstimatorTest {
         assertNull(estimator.process(sample(12).copy(eegBandsAvailable = false)).calmness)
     }
 
-    @Test fun lowerBetaRaisesCalmnessAndStillnessDoesNotAffectFusion() {
+    @Test fun lowerBetaRaisesCalmnessAndStillnessDoesNotAffectEeg() {
         val estimator = CalmnessEstimator(smoothingFactor = 1.0)
         repeat(10) { estimator.process(sample(it + 1)) }
         assertTrue(estimator.process(sample(11, beta = 0.1)).calmness!! > 0.5)
@@ -31,14 +31,23 @@ class CalmnessEstimatorTest {
         assertNull(estimator.process(sample(15, stillness = 1.0).copy(beta = null)).calmness)
     }
 
-    @Test fun heartJoinsOnlyAfterItsOwnBaselineAndMissingHeartIsExcluded() {
-        val estimator = CalmnessEstimator(smoothingFactor = 1.0)
-        repeat(10) { estimator.process(sample(it + 1, stillness = 1.0)) }
-        repeat(9) { assertEquals(0.5, estimator.process(sample(it + 11, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001) }
-        assertEquals(0.5, estimator.process(sample(20, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001)
-        assertEquals(0.6, estimator.process(sample(21, stillness = 1.0, bpm = 70.0)).calmness!!, 0.000001)
-        assertEquals(0.6, estimator.process(sample(21, stillness = 0.0, bpm = 70.0)).calmness!!, 0.000001)
-        assertEquals(0.5, estimator.process(sample(22, stillness = 1.0)).calmness!!, 0.000001)
+    @Test fun heartRateAndMotionDoNotAffectEegCalibrationOrSmoothedCalmness() {
+        val reference = CalmnessEstimator()
+        val measured = CalmnessEstimator()
+        for (second in 1..40) {
+            val input = sample(second, beta = if (second <= 10) 0.2 else if (second % 2 == 0) 0.1 else 0.4)
+            val expected = reference.process(input)
+            val actual = measured.process(input.copy(
+                stillness = if (second % 2 == 0) 0.0 else 1.0,
+                heartRateBpm = if (second % 2 == 0) 40.0 else 180.0,
+            ))
+            assertEquals(expected.calmness, actual.calmness)
+            assertEquals(reference.calibrationSeconds, measured.calibrationSeconds)
+            assertEquals(4, actual.algorithmVersion)
+            assertEquals(input.copy(stillness = actual.stillness, heartRateBpm = actual.heartRateBpm,
+                calmness = expected.calmness, algorithmVersion = 4), actual)
+        }
+        assertNull(measured.process(sample(41, bpm = 70.0).copy(beta = null)).calmness)
     }
 
     @Test fun interruptionKeepsCompletedBaselineAndResetStartsANewSession() {

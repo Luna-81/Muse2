@@ -28,7 +28,7 @@ class EegPersistenceTest {
         }
     }
 
-    @Test fun persistedPoorWindowsCannotEnterHistoricalFocusOrCalmness() {
+    @Test fun persistedPoorWindowsCannotEnterHistoricalCalmness() {
         // Redirect both SQLiteOpenHelper paths to a unique cache file, never the user's history.
         val target = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File.createTempFile("eeg-test-", ".db", target.cacheDir)
@@ -59,9 +59,11 @@ class EegPersistenceTest {
                 it.valid && it.alpha == null && it.theta == null && it.beta == null && it.calmness == null
             })
             val trustedScores = SessionScoreCalculator.calculate(samples.take(40))
-            assertNotNull(trustedScores.overall)
+            assertNotNull(trustedScores.calm)
+            assertNotNull(trustedScores.stability)
+            assertNull(trustedScores.heartRateBpm)
             assertEquals(trustedScores, SessionScoreCalculator.calculate(persisted))
-            assertTrue(persisted.all { it.algorithmVersion == 3 })
+            assertTrue(persisted.all { it.algorithmVersion == 4 })
         } finally {
             database.deleteSession(id)
             database.close()

@@ -1,7 +1,5 @@
 package com.blue.hush.session
 
-const val BUNDLED_SIMULATION_SESSION_ID = -1L
-
 enum class SessionPhase {
     IDLE,
     CONNECTING,
@@ -54,9 +52,7 @@ data class SessionSummary(
     val sampleCount: Int,
     val validSampleCount: Int,
     val resultSampleCount: Int = validSampleCount,
-) {
-    val isBundledSimulation: Boolean get() = id == BUNDLED_SIMULATION_SESSION_ID
-}
+)
 
 enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, INTERFERENCE, UNKNOWN, MISSING }
 

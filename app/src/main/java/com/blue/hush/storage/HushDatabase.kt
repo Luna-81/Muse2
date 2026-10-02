@@ -4,8 +4,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import com.blue.hush.processing.SessionResultClassifier
-import com.blue.hush.session.BUNDLED_SIMULATION_SESSION_ID
 import com.blue.hush.session.MusicTrack
 import com.blue.hush.session.ResultLabel
 import com.blue.hush.session.SessionSummary
@@ -44,12 +42,18 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version two recorded imports permanently; bundled history is now restored on startup.
+        // Remove the obsolete version-two simulation import marker.
         if (oldVersion < 3) db.execSQL("DROP TABLE IF EXISTS imported_sessions")
         if (oldVersion < 4) {
             db.execSQL("ALTER TABLE samples ADD COLUMN heart_rate_bpm REAL")
             db.execSQL("ALTER TABLE samples ADD COLUMN calmness REAL")
             db.execSQL("ALTER TABLE samples ADD COLUMN algorithm_version INTEGER NOT NULL DEFAULT 0")
+        }
+        if (oldVersion < 5) {
+            // SQLiteOpenHelper runs upgrades in a transaction. Reset incompatible history once,
+            // including unfinished and formerly auto-imported simulation sessions.
+            db.delete("samples", null, null)
+            db.delete("sessions", null, null)
         }
     }
 
@@ -77,46 +81,6 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     fun insertSample(sessionId: Long, sample: StateSample) {
         insertSample(writableDatabase, sessionId, sample)
-    }
-
-    /** Ensures bundled history exists on startup, restoring it after deletion. */
-    fun ensureBundledSimulation(samples: List<StateSample>) {
-        val db = writableDatabase
-        db.beginTransaction()
-        try {
-            val alreadyImported = db.query(
-                "sessions", arrayOf("id"), "id = ?",
-                arrayOf(BUNDLED_SIMULATION_SESSION_ID.toString()), null, null, null,
-            ).use { it.moveToFirst() }
-            if (!alreadyImported) {
-                val oldestStart = db.rawQuery("SELECT MIN(started_at) FROM sessions", null).use { cursor ->
-                    if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null
-                }
-                // The source has no timestamps. Place its synthetic interval before all real sessions.
-                val end = minOf(oldestStart ?: Long.MAX_VALUE, System.currentTimeMillis()) - 1
-                val start = end - samples.size * 1_000L
-                val values = ContentValues().apply {
-                    put("id", BUNDLED_SIMULATION_SESSION_ID)
-                    put("started_at", start)
-                    put("ended_at", end)
-                    put("planned_seconds", samples.size)
-                    put("actual_seconds", samples.size)
-                    put("track", MusicTrack.MIST.name)
-                    put("result", SessionResultClassifier.classify(samples).name)
-                }
-                db.insertOrThrow("sessions", null, values)
-                samples.forEach { insertSample(db, BUNDLED_SIMULATION_SESSION_ID, it) }
-            } else if (samples.any { it.algorithmVersion > 0 } && !hasCompositeSamples(BUNDLED_SIMULATION_SESSION_ID)) {
-                // Only the reserved CSV session is reproducible; never synthesize old user scores.
-                db.delete("samples", "session_id = ?", arrayOf(BUNDLED_SIMULATION_SESSION_ID.toString()))
-                samples.forEach { insertSample(db, BUNDLED_SIMULATION_SESSION_ID, it) }
-                val result = ContentValues().apply { put("result", SessionResultClassifier.classify(samples).name) }
-                db.update("sessions", result, "id = ?", arrayOf(BUNDLED_SIMULATION_SESSION_ID.toString()))
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
-        }
     }
 
     private fun insertSample(db: SQLiteDatabase, sessionId: Long, sample: StateSample) {
@@ -233,6 +197,6 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     private companion object {
         const val DATABASE_NAME = "hush.db"
-        const val DATABASE_VERSION = 4
+        const val DATABASE_VERSION = 5
     }
 }

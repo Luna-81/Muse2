@@ -1,11 +1,9 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.blue.hush.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -62,30 +60,26 @@ internal fun CompletionScreen(
 @Composable
 internal fun SessionScoreSummary(seconds: Int, scores: SessionScores) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-            Column(Modifier.weight(1f)) {
-                Text("Total Time", style = MaterialTheme.typography.labelLarge, color = HushColors.Muted)
-                Text(formatDuration(seconds), style = MaterialTheme.typography.displayLarge)
-            }
-            Surface(shape = CircleShape, color = HushColors.SurfaceRaised,
-                border = BorderStroke(1.dp, HushColors.Accent)) {
-                Box(Modifier.defaultMinSize(minWidth = 80.dp, minHeight = 80.dp).padding(HushSpace.sm)
-                    .semantics { contentDescription = "Overall grade: ${scores.grade ?: "unavailable"}" },
-                    contentAlignment = Alignment.Center) {
-                    Text(scores.grade ?: "—", style = MaterialTheme.typography.headlineLarge, color = HushColors.Accent)
-                }
-            }
+        Column {
+            Text("Total Time", style = MaterialTheme.typography.labelLarge, color = HushColors.Muted)
+            Text(formatDuration(seconds), style = MaterialTheme.typography.displayLarge)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-            listOf("Calm" to scores.calm, "Focus" to scores.focus, "Stability" to scores.stability).forEach { (label, value) ->
+            listOf("Calm" to scores.calm, "Stability" to scores.stability, "Heart Rate" to scores.heartRateBpm).forEach { (label, value) ->
+                val isHeartRate = label == "Heart Rate"
+                val rounded = value?.roundToInt()
+                val description = if (isHeartRate) "Heart Rate: ${rounded?.let { "$it BPM" } ?: "unavailable"}"
+                    else "$label score: ${rounded?.let { "$it out of 100" } ?: "unavailable"}"
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
                     Text(label, style = MaterialTheme.typography.labelMedium)
                     Surface(Modifier.fillMaxWidth(), shape = HushShapes.Control, color = HushColors.SurfaceRaised) {
                         Box(Modifier.heightIn(min = 56.dp).padding(HushSpace.sm)
-                            .semantics { contentDescription = "$label score: ${value?.roundToInt()?.let { "$it out of 100" } ?: "unavailable"}" },
+                            .semantics { contentDescription = description },
                             contentAlignment = Alignment.Center) {
-                            Text(value?.roundToInt()?.toString() ?: "—", style = MaterialTheme.typography.headlineMedium)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(rounded?.toString() ?: "—", style = MaterialTheme.typography.headlineMedium)
+                                if (isHeartRate) Text("BPM", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
+                            }
                         }
                     }
                 }

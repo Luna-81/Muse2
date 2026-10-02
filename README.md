@@ -1,6 +1,10 @@
 # Hush
 
-Hush is an Android meditation app for Muse 2. It combines Alpha, Theta, Beta and PPG-derived heart rate into a gradual galaxy visualization and a Calmness trend, then saves local session summaries and replay data. Acceleration measures body stillness independently and does not affect Calmness or scores. The demo calibrates from 10 valid EEG seconds; heart rate joins after its own baseline is available. A bundled ten-minute simulation lets the session flow run without a headband and appears once as the oldest History entry. New simulations use EEG alone without inventing heart rate; stored stillness remains available for its separate chart. Calmness is an engineering heuristic, not a validated meditation-quality or medical assessment. History retains its original four relative curves and adds the saved Calmness trend.
+Hush is an Android meditation app for Muse 2. Trusted Alpha, Theta, and Beta measurements drive an EEG-only Calmness trend and gradual galaxy visualization after 10 valid EEG seconds of personal calibration. Session results show three independent metrics: Calm (mean Calmness, 0-100), Stability (mean head stillness from acceleration, 0-100), and Heart Rate (mean PPG-derived BPM). Each requires 30 valid measured seconds of its own input; unavailable values display `—` and gaps never become zero scores. There is no Focus score or overall grade. These metrics are experimental, not a validated meditation-quality or medical assessment.
+
+The bundled ten-minute simulation exercises timing, storage, summaries, and replay without a headband or Bluetooth permission. Loading it does not create a History entry; running a simulation saves an ordinary session. Its CSV has no heart rate, so simulated Heart Rate remains unavailable.
+
+**History reset:** upgrading a database from version 1-4 to version 5 permanently deletes all existing sessions and samples, including unfinished sessions and the former `Saved simulation` entry. This happens once during the transactional upgrade. Subsequent launches preserve new history; simulation history is no longer automatically imported or restored. Connection preferences and other settings are unchanged.
 
 ## Build
 

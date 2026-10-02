@@ -15,7 +15,7 @@ class HistoryDeletionTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun swipeRequiresConfirmationAndCancelKeepsCardUsable() {
-        val summary = SessionSummary(BUNDLED_SIMULATION_SESSION_ID, 0, 600_000, 600, 600,
+        val summary = SessionSummary(1L, 0, 600_000, 600, 600,
             MusicTrack.MIST, ResultLabel.STEADY, 600, 600)
         var opens = 0
         val deleted = mutableListOf<Long>()
@@ -31,11 +31,12 @@ class HistoryDeletionTest {
             }
         }
 
-        val card = compose.onNodeWithText("Saved simulation")
+        val card = compose.onNodeWithText("10:00 · Mist")
         card.performTouchInput { swipeRight() }
         compose.onNodeWithText("Delete session?").assertDoesNotExist()
         card.performTouchInput { swipeLeft() }
         compose.onNodeWithText("Delete session?").assertIsDisplayed()
+        compose.onNodeWithText("This session and its replay data will be permanently deleted.").assertIsDisplayed()
         compose.runOnIdle { assertEquals(emptyList<Long>(), deleted) }
         compose.onNodeWithText("Cancel").performClick()
         card.assertIsDisplayed().performClick()
@@ -44,7 +45,7 @@ class HistoryDeletionTest {
         card.performTouchInput { swipeLeft() }
         compose.onNodeWithText("Delete session?").assertIsDisplayed()
         compose.onAllNodesWithText("Delete").filter(hasClickAction()).onFirst().performClick()
-        compose.onNodeWithText("Saved simulation").assertDoesNotExist()
+        compose.onNodeWithText("10:00 · Mist").assertDoesNotExist()
         compose.onNodeWithText("Complete a session to see it here.").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf(summary.id), deleted) }
     }

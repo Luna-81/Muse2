@@ -138,7 +138,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             val values = packets.flatMap { packet -> channels.mapNotNull { packet[it] } }
             values.takeIf { it.isNotEmpty() }?.average()
         }
-        // Persist only complete trusted bands; partial rows must never enter historical Focus scores.
+        // Persist only complete trusted bands; partial rows must never become EEG measurements.
         val available = aggregated.all { it != null } && aggregated.sumOf { it ?: 0.0 } > 0
         val raw = if (available) aggregated else List(3) { null }
         val eegStatus = when {

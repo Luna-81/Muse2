@@ -29,7 +29,7 @@ class HushAppScreenTest {
         // The Home preview has a continuous frame loop and never idles.
         compose.mainClock.autoAdvance = finished
         val samples = if (withHistory) (1..40).map { StateSample(it, alpha = 0.3, theta = 0.2, beta = 0.2,
-            calmness = 0.8, valid = true, eegBandsAvailable = true, algorithmVersion = 1) } else emptyList()
+            calmness = 0.8, stillness = 0.9, heartRateBpm = 72.0, valid = true, eegBandsAvailable = true, algorithmVersion = 4) } else emptyList()
         val summary = SessionSummary(1, 1000, 41000, 600, 40, MusicTrack.MIST, ResultLabel.STEADY, 40, 40)
         compose.activity.runOnUiThread {
             compose.activity.setContent {
@@ -101,10 +101,12 @@ class HushAppScreenTest {
 
     @Test fun completionDoesNotInventAnAssessmentWithoutSignal() {
         show(finished = true)
-        compose.onNodeWithContentDescription("Overall grade: unavailable").assertIsDisplayed()
-        listOf("Calm", "Focus", "Stability").forEach {
+        compose.onNodeWithText("Focus").assertDoesNotExist()
+        listOf("Calm", "Stability").forEach {
             compose.onNodeWithContentDescription("$it score: unavailable").assertIsDisplayed()
         }
+        compose.onNodeWithContentDescription("Heart Rate: unavailable").assertIsDisplayed()
+        compose.onNodeWithText("BPM").assertIsDisplayed()
         compose.onNodeWithText("More Details").performScrollTo().assertIsNotEnabled()
         saveScreenshot("hush-completion.png")
         androidx.test.espresso.Espresso.pressBack()
@@ -122,14 +124,14 @@ class HushAppScreenTest {
     @Test fun completionAndDetailsShowSameScoresAndReturnWithSheetClosed() {
         show(finished = true, withHistory = true)
         compose.onNodeWithContentDescription("Calm score: 80 out of 100").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Focus score: 50 out of 100").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Stability score: 100 out of 100").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Overall grade: B").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Heart Rate: 72 BPM").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Stability score: 90 out of 100").assertIsDisplayed()
+        compose.onNodeWithText("Focus").assertDoesNotExist()
         compose.onNodeWithText("More Details").performScrollTo().performClick()
         compose.onNodeWithText("Session details").assertIsDisplayed()
         compose.onNodeWithContentDescription("Calm score: 80 out of 100").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Focus score: 50 out of 100").assertExists()
-        compose.onNodeWithContentDescription("Overall grade: B").assertExists()
+        compose.onNodeWithContentDescription("Heart Rate: 72 BPM").assertExists()
+        compose.onNodeWithContentDescription("Stability score: 90 out of 100").assertExists()
         androidx.test.espresso.Espresso.pressBack()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithText("Finished").assertIsDisplayed()

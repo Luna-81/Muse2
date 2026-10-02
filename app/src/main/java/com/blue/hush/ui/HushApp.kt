@@ -178,9 +178,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
         AlertDialog(
             onDismissRequest = { pendingDeleteId = null },
             title = { Text("Delete session?") },
-            text = { Text(if (pendingDelete.isBundledSimulation)
-                "This saved simulation will be removed until the next app launch."
-            else "This session and its replay data will be permanently deleted.") },
+            text = { Text("This session and its replay data will be permanently deleted.") },
             confirmButton = { TextButton(onClick = {
                 pendingDeleteId = null
                 onDelete(pendingDelete)
@@ -223,8 +221,8 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
                     }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
                         MindprintThumbnail(summary.id, Modifier.size(56.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                            Text(if (summary.isBundledSimulation) "Saved simulation" else formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
-                            Text(if (summary.isBundledSimulation) formatDuration(summary.actualSeconds) else "${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
+                            Text(formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
+                            Text("${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
                             Text(if (summary.resultSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
                         }
                     }
@@ -238,16 +236,16 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
     val cursor = remember(samples) { ReplayCursor(samples) }
     val scores = remember(samples) { SessionScoreCalculator.calculate(samples) }
     val sample = cursor.sampleAt(progress)
-    Page(if (summary.isBundledSimulation) "Saved simulation" else "Session details", onBack) {
+    Page("Session details", onBack) {
         LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
             item {
-                if (!summary.isBundledSimulation) Text(formatDate(summary.startedAt), color = HushColors.Muted)
+                Text(formatDate(summary.startedAt), color = HushColors.Muted)
                 Text(formatDuration(summary.actualSeconds), style = MaterialTheme.typography.displayLarge)
             }
             item { ParticlePanel(sample, sample?.valid != true) }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 SessionScoreSummary(summary.actualSeconds, scores)
-                Text("Experimental scores, not a validated measure of meditation quality.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+                Text("Experimental metrics, not a validated measure of meditation quality.", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
             } }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Replay", style = MaterialTheme.typography.titleMedium)

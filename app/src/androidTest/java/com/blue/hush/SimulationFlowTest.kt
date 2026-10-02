@@ -43,7 +43,7 @@ class SimulationFlowTest {
             compose.onNodeWithText("Finished").assertIsDisplayed()
             compose.onNodeWithText("More Details").assertDoesNotExist()
             compose.onNodeWithText("Results").performScrollTo().performClick()
-            compose.onNodeWithContentDescription("Overall grade: unavailable").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Heart Rate: unavailable").assertIsDisplayed()
         } finally {
             if (SessionRuntime.current.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
                 compose.runOnUiThread { MeditationService.command(compose.activity, MeditationService.ACTION_FINISH) }

@@ -221,11 +221,11 @@ class EegQualityTest {
             processor.accept(MuseDataPacketType.ACCELEROMETER, listOf(0.0, 0.0, 1.0), at)
             samples += processor.nextSample(second, at + 100)
         }
-        assertNull(SessionScoreCalculator.calculate(samples).focus)
+        assertNull(SessionScoreCalculator.calculate(samples).heartRateBpm)
         assertNull(SessionScoreCalculator.calculate(samples).calm)
         assertEquals(10, samples.count { it.alpha != null })
         assertTrue(samples.takeLast(44).all { it.valid && it.alpha == null && it.calmness == null })
-        assertTrue(samples.all { it.algorithmVersion == 3 })
+        assertTrue(samples.all { it.algorithmVersion == 4 })
     }
 
     @Test fun pauseDisconnectAndNewSessionRejectOldPacketsAndQuality() {
