@@ -113,6 +113,11 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
         return writableDatabase.insertOrThrow("sessions", null, values)
     }
 
+    fun updateSessionTrack(sessionId: Long, track: MusicTrack) {
+        val values = ContentValues().apply { put("track", track.name) }
+        writableDatabase.update("sessions", values, "id = ?", arrayOf(sessionId.toString()))
+    }
+
     fun insertSample(sessionId: Long, sample: StateSample) {
         insertSample(writableDatabase, sessionId, sample)
     }

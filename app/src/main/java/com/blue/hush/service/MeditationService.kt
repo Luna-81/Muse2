@@ -113,6 +113,16 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             ACTION_PAUSE -> pauseSession()
             ACTION_RESUME -> resumeSession()
             ACTION_FINISH -> finishSession()
+            ACTION_SET_TRACK -> {
+                val track = intent.getStringExtra(EXTRA_TRACK)?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
+                if (currentState.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED) &&
+                    track in MusicTrack.soundscapes && track != selectedTrack && track != null) {
+                    selectedTrack = track
+                    audioEngine?.play(track, paused = currentState.phase == SessionPhase.PAUSED)
+                    sessionId?.let { database.updateSessionTrack(it, track) }
+                    publish(currentState.copy(track = track))
+                }
+            }
             ACTION_SET_VOLUME -> {
                 currentVolume = intent.getFloatExtra(EXTRA_VOLUME, currentVolume).coerceIn(0f, 1f)
                 audioEngine?.setVolume(currentVolume)
@@ -358,6 +368,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         const val ACTION_RESUME = "com.blue.hush.action.RESUME"
         const val ACTION_FINISH = "com.blue.hush.action.FINISH"
         const val ACTION_SET_VOLUME = "com.blue.hush.action.SET_VOLUME"
+        const val ACTION_SET_TRACK = "com.blue.hush.action.SET_TRACK"
         const val EXTRA_DEVICE_ADDRESS = "device_address"
         const val EXTRA_DEVICE_NAME = "device_name"
         const val EXTRA_PLANNED_SECONDS = "planned_seconds"
@@ -390,6 +401,14 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
 
         fun command(context: Context, action: String) {
             context.startService(Intent(context, MeditationService::class.java).setAction(action))
+        }
+
+        fun setTrack(context: Context, track: MusicTrack) {
+            context.startService(
+                Intent(context, MeditationService::class.java)
+                    .setAction(ACTION_SET_TRACK)
+                    .putExtra(EXTRA_TRACK, track.name),
+            )
         }
 
         fun setVolume(context: Context, volume: Float) {

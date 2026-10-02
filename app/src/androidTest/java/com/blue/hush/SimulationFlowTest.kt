@@ -3,6 +3,7 @@ package com.blue.hush
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.blue.hush.service.MeditationService
+import com.blue.hush.session.MusicTrack
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionRuntime
 import org.junit.Rule
@@ -11,6 +12,39 @@ import org.junit.Test
 /** Exercises the actual activity/service path, without a live Muse or Bluetooth permission. */
 class SimulationFlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test fun switchingSessionTracksPreservesPauseAndPersistsLastSelection() {
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.runOnUiThread {
+                MeditationService.startSimulation(compose.activity, MusicTrack.RAIN, 0f)
+            }
+            compose.waitUntil(5000) { SessionRuntime.current.phase == SessionPhase.RUNNING }
+            val id = SessionRuntime.current.sessionId!!
+            compose.runOnUiThread { MeditationService.setTrack(compose.activity, MusicTrack.OCEAN) }
+            compose.waitUntil(5000) { SessionRuntime.current.track == MusicTrack.OCEAN }
+            compose.runOnUiThread { MeditationService.command(compose.activity, MeditationService.ACTION_PAUSE) }
+            compose.waitUntil(5000) { SessionRuntime.current.phase == SessionPhase.PAUSED }
+            val elapsed = SessionRuntime.current.elapsedSeconds
+            compose.runOnUiThread { MeditationService.setTrack(compose.activity, MusicTrack.FIREPLACE) }
+            compose.waitUntil(5000) { SessionRuntime.current.track == MusicTrack.FIREPLACE }
+            org.junit.Assert.assertEquals(SessionPhase.PAUSED, SessionRuntime.current.phase)
+            org.junit.Assert.assertEquals(elapsed, SessionRuntime.current.elapsedSeconds)
+            org.junit.Assert.assertEquals(0f, SessionRuntime.current.volume)
+            compose.runOnUiThread { MeditationService.command(compose.activity, MeditationService.ACTION_FINISH) }
+            compose.waitUntil(5000) { SessionRuntime.current.phase == SessionPhase.FINISHED }
+            com.blue.hush.storage.HushDatabase(compose.activity).use { database ->
+                org.junit.Assert.assertEquals(MusicTrack.FIREPLACE,
+                    database.loadSummaries().first { it.id == id }.track)
+                database.deleteSession(id)
+            }
+        } finally {
+            if (SessionRuntime.current.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
+                compose.runOnUiThread { MeditationService.command(compose.activity, MeditationService.ACTION_FINISH) }
+            }
+            SessionRuntime.resetToIdle(600, MusicTrack.RAIN, 0.7f)
+        }
+    }
 
     @Test fun simulationCanStartPauseFinishAndOpenSavedDetails() {
         try {

@@ -184,6 +184,9 @@ class MainActivity : ComponentActivity() {
                         selectedTrack = it
                         previewTrack = null
                         previewEngine.stop()
+                        if (sessionState.phase in listOf(SessionPhase.CONNECTING, SessionPhase.RUNNING, SessionPhase.PAUSED)) {
+                            MeditationService.setTrack(this, it)
+                        }
                     },
                     onStartScanning = ::startScanning,
                     onConnect = ::connectMuse,

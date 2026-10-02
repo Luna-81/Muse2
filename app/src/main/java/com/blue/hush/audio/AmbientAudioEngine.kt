@@ -16,12 +16,12 @@ class AmbientAudioEngine(context: Context) {
     private var wantsPlayback = false
     private var volume = 0.7f
 
-    fun play(track: MusicTrack) {
+    fun play(track: MusicTrack, paused: Boolean = false) {
         synchronized(lock) {
             stopLocked()
             val output = MediaPlayer()
             player = output
-            wantsPlayback = true
+            wantsPlayback = !paused
             try {
                 output.setAudioAttributes(
                     AudioAttributes.Builder()

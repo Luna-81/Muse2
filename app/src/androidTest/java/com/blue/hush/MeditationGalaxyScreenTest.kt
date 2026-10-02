@@ -12,10 +12,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.test.platform.app.InstrumentationRegistry
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.StateSample
+import com.blue.hush.session.MusicTrack
 import com.blue.hush.ui.MeditationGalaxyScreen
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Assert.assertEquals
@@ -42,6 +45,7 @@ class MeditationGalaxyScreenTest {
                         onResume = { state.value = state.value.copy(phase = SessionPhase.RUNNING) },
                         onFinish = { finished++ },
                         onVolumeChanged = { state.value = state.value.copy(volume = it) },
+                        onTrackSelected = { state.value = state.value.copy(track = it) },
                     )
                 }
             }
@@ -64,12 +68,17 @@ class MeditationGalaxyScreenTest {
         val frozen = galaxyCrop()
         compose.mainClock.advanceTimeBy(2_000)
         assertEquals(true, frozen.sameAs(galaxyCrop()))
-        compose.onNodeWithContentDescription("Adjust volume").performClick()
+        compose.onNodeWithContentDescription("Soundscape · Rain").performClick()
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithContentDescription("Meditation volume").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithContentDescription("Meditation volume").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Ocean").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("Select").onFirst().performClick()
+        compose.runOnIdle { assertEquals(MusicTrack.OCEAN, state.value.track) }
         compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithContentDescription("Adjust volume").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithContentDescription("Soundscape · Ocean").assertIsDisplayed()
         assertEquals(0, finished)
         compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
         compose.mainClock.advanceTimeBy(30_000)
@@ -108,10 +117,10 @@ class MeditationGalaxyScreenTest {
                     }
                 }
             }
-            compose.onNodeWithText("18:55").assertIsDisplayed()
+            compose.onNodeWithText("08:55").assertIsDisplayed()
             compose.onNodeWithContentDescription("Resume").assertIsDisplayed()
             compose.onNodeWithText("Finish").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithContentDescription("Adjust volume").performClick()
+            compose.onNodeWithContentDescription("Soundscape · Rain").performClick()
             compose.onNodeWithContentDescription("Meditation volume").performScrollTo().assertIsDisplayed()
             saveScreenshot("galaxy-landscape.png")
         } finally {

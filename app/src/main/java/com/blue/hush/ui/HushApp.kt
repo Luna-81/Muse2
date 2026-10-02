@@ -97,7 +97,7 @@ fun HushApp(
     var resultsSheet by rememberSaveable(sessionState.sessionId) { mutableStateOf(true) }
     val galaxyMotion = rememberGalaxyMotion()
     if (sessionState.phase in listOf(SessionPhase.CONNECTING, SessionPhase.RUNNING, SessionPhase.PAUSED)) {
-        MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion)
+        MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion, onTrackSelected)
         return
     }
     if (detailSummary != null) {
@@ -158,18 +158,35 @@ fun HushApp(
     }
     if (musicSheet) {
         DisposableEffect(Unit) { onDispose { onStopPreview() } }
-        ModalBottomSheet(onDismissRequest = { musicSheet = false }, containerColor = HushColors.Surface) {
-            LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-                item { Text("Soundscapes", style = MaterialTheme.typography.headlineMedium) }
-                items(MusicTrack.soundscapes, key = { it.name }) { track -> HushPanel(Modifier.fillMaxWidth()) {
-                    Text(track.title, style = MaterialTheme.typography.titleLarge)
-                    Text(track.subtitle, color = HushColors.Muted)
-                    Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                        FilterChip(selected = selectedTrack == track, onClick = { onTrackSelected(track) }, label = { Text(if (selectedTrack == track) "Selected" else "Select") })
-                        TextButton(onClick = { onPreviewTrack(track) }) { Text(if (previewTrack == track) "Stop preview" else "Preview") }
-                    }
-                } }
+        SoundscapeSheet(selectedTrack, onTrackSelected, onDismiss = { musicSheet = false }, previewTrack = previewTrack, onPreviewTrack = onPreviewTrack)
+    }
+}
+
+@Composable
+internal fun SoundscapeSheet(
+    selectedTrack: MusicTrack,
+    onTrackSelected: (MusicTrack) -> Unit,
+    onDismiss: () -> Unit,
+    previewTrack: MusicTrack? = null,
+    onPreviewTrack: ((MusicTrack) -> Unit)? = null,
+    volume: Float? = null,
+    onVolumeChanged: (Float) -> Unit = {},
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = HushColors.Surface) {
+        LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
+            item { Text("Soundscapes", style = MaterialTheme.typography.headlineMedium) }
+            if (volume != null) item {
+                Slider(value = volume, onValueChange = onVolumeChanged,
+                    modifier = Modifier.semantics { contentDescription = "Meditation volume" })
             }
+            items(MusicTrack.soundscapes, key = { it.name }) { track -> HushPanel(Modifier.fillMaxWidth()) {
+                Text(track.title, style = MaterialTheme.typography.titleLarge)
+                Text(track.subtitle, color = HushColors.Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+                    FilterChip(selected = selectedTrack == track, onClick = { onTrackSelected(track) }, label = { Text(if (selectedTrack == track) "Selected" else "Select") })
+                    if (onPreviewTrack != null) TextButton(onClick = { onPreviewTrack(track) }) { Text(if (previewTrack == track) "Stop preview" else "Preview") }
+                }
+            } }
         }
     }
 }

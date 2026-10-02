@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,10 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushSpace
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Button
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
@@ -55,6 +53,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
+import com.blue.hush.session.MusicTrack
 
 @Composable
 internal fun MeditationGalaxyScreen(
@@ -64,8 +63,9 @@ internal fun MeditationGalaxyScreen(
     onFinish: () -> Unit,
     onVolumeChanged: (Float) -> Unit,
     galaxyMotion: GalaxyMotion = rememberGalaxyMotion(),
+    onTrackSelected: (MusicTrack) -> Unit = {},
 ) {
-    var volumeExpanded by rememberSaveable { mutableStateOf(false) }
+    var musicSheet by rememberSaveable { mutableStateOf(false) }
     var confirmFinish by rememberSaveable { mutableStateOf(false) }
     var controlsHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -91,7 +91,7 @@ internal fun MeditationGalaxyScreen(
         }
     }
     // Dismissing a panel must never also end the session.
-    BackHandler { if (volumeExpanded) volumeExpanded = false else confirmFinish = true }
+    BackHandler { if (musicSheet) musicSheet = false else confirmFinish = true }
     if (confirmFinish) AlertDialog(
         onDismissRequest = { confirmFinish = false },
         title = { Text("End this session?") },
@@ -127,26 +127,7 @@ internal fun MeditationGalaxyScreen(
                     }
                     status?.let { Text(it, color = HushColors.Muted, style = MaterialTheme.typography.labelMedium) }
                 }
-                IconButton(
-                    onClick = { volumeExpanded = !volumeExpanded },
-                    modifier = Modifier.semantics { contentDescription = if (volumeExpanded) "Hide volume" else "Adjust volume" },
-                ) {
-                    Canvas(Modifier.size(24.dp)) {
-                        val w = size.width
-                        val h = size.height
-                        val speaker = Path().apply {
-                            moveTo(w * 0.12f, h * 0.38f)
-                            lineTo(w * 0.3f, h * 0.38f)
-                            lineTo(w * 0.52f, h * 0.18f)
-                            lineTo(w * 0.52f, h * 0.82f)
-                            lineTo(w * 0.3f, h * 0.62f)
-                            lineTo(w * 0.12f, h * 0.62f)
-                            close()
-                        }
-                        drawPath(speaker, HushColors.Text)
-                        drawArc(HushColors.Text, -60f, 120f, false, Offset(w * 0.4f, h * 0.2f), androidx.compose.ui.geometry.Size(w * 0.48f, h * 0.6f), style = Stroke(1.5.dp.toPx()))
-                    }
-                }
+                MusicButton(state.track.title, onClick = { musicSheet = true })
             }
         }
             Column(
@@ -157,36 +138,32 @@ internal fun MeditationGalaxyScreen(
                     .verticalScroll(rememberScrollState()).padding(horizontal = HushSpace.xl, vertical = HushSpace.md),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.sm), horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                CalmnessChart(state.trendSamples, state.elapsedSeconds)
                 Text(formatDuration(state.plannedSeconds - state.elapsedSeconds), style = MaterialTheme.typography.displayLarge, color = HushColors.Text)
                 Text("Time remaining", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
-                if (volumeExpanded) {
-                    Slider(
-                        value = state.volume,
-                        onValueChange = onVolumeChanged,
-                        modifier = Modifier.semantics { contentDescription = "Meditation volume" },
-                    )
-                }
-                Button(
+                OutlinedButton(
                     onClick = if (paused) onResume else onPause,
                     enabled = paused || state.phase == SessionPhase.RUNNING,
                     shape = CircleShape,
-                    modifier = Modifier.size(76.dp).semantics { contentDescription = if (paused) "Resume" else "Pause" },
+                    border = BorderStroke(1.dp, HushColors.Lavender.copy(alpha = 0.55f)),
+                    modifier = Modifier.padding(top = HushSpace.sm).size(56.dp).semantics { contentDescription = if (paused) "Resume" else "Pause" },
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                 ) {
                     Canvas(Modifier.size(24.dp)) {
                         if (paused) {
                             val path = Path().apply { moveTo(5f, 0f); lineTo(size.width, size.height / 2); lineTo(5f, size.height); close() }
-                            drawPath(path, HushColors.OnAccent)
+                            drawPath(path, HushColors.Text)
                         } else {
-                            drawRect(HushColors.OnAccent, size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
-                            drawRect(HushColors.OnAccent, topLeft = Offset(size.width * 0.75f, 0f), size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
+                            drawRect(HushColors.Text, size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
+                            drawRect(HushColors.Text, topLeft = Offset(size.width * 0.75f, 0f), size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
                         }
                     }
                 }
                 TextButton(onClick = { confirmFinish = true }) { Text("Finish") }
+                CalmnessChart(state.trendSamples, state.elapsedSeconds, plotHeight = 64.dp, showAxes = false)
             }
     }
+    if (musicSheet) SoundscapeSheet(state.track, onTrackSelected, onDismiss = { musicSheet = false },
+        volume = state.volume, onVolumeChanged = onVolumeChanged)
 }
 
 private tailrec fun Context.activity(): Activity? = when (this) {

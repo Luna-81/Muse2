@@ -8,7 +8,7 @@
 
 ## Soundscapes
 
-`AmbientAudioEngine` streams bundled Ogg Vorbis recordings through Android `MediaPlayer`, with asynchronous preparation and looping playback. `MainActivity` owns a preview engine; `MeditationService` owns the session engine. Pause/resume preserves playback position, and volume is applied once by the player. Stopping or replacing a track releases its player; a stale preparation callback cannot restart a dismissed preview. No network, synthesis worker, or additional playback dependency is required.
+`AmbientAudioEngine` streams bundled Ogg Vorbis recordings through Android `MediaPlayer`, with asynchronous preparation and looping playback. `MainActivity` owns a preview engine; `MeditationService` owns the session engine. Pause/resume preserves playback position, and volume is applied once by the player. The session music button opens the shared Soundscapes sheet; MainActivity forwards selections through ACTION_SET_TRACK to MeditationService. The service replaces its player without restarting the timer or collection, preserves volume, and prepares silently when paused. The session row stores the last selected track; individual track changes are not recorded as a timeline. Stopping or replacing a track releases its player; a stale preparation callback cannot restart a dismissed preview. No network, synthesis worker, or additional playback dependency is required.
 
 New sessions offer Rain, Ocean, and Fireplace, with Rain selected by default. `MIST` and `TIDE` enum values remain readable with their original history labels; legacy playback commands map them to Rain and Ocean respectively. Existing database rows require no migration. The soundscape sheet scrolls on constrained screens.
 

@@ -58,17 +58,18 @@ internal fun DrawScope.drawChartBridge(from: Offset, to: Offset, color: Color, w
 internal fun CalmnessChart(
     samples: List<StateSample>, elapsedSeconds: Int, plotHeight: Dp = 96.dp,
     replaySecond: Int? = null, onReplaySecondSelected: ((Float) -> Unit)? = null,
+    showAxes: Boolean = true,
 ) {
     val currentOnReplaySelected by rememberUpdatedState(onReplaySecondSelected)
     val latest = remember(samples) { samples.lastOrNull { it.chartCalmness() != null }?.chartCalmness() }
     val description = if (latest == null) "Calmness trend, no data" else "Calmness trend, latest ${String.format(Locale.US, "%.0f", latest * 100)} out of 100"
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (showAxes) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Calmness", style = MaterialTheme.typography.labelMedium, color = HushColors.Muted)
             replaySecond?.let { Text(formatDuration(it), style = MaterialTheme.typography.labelMedium, color = HushColors.Accent) }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-            Column(Modifier.height(plotHeight), verticalArrangement = Arrangement.SpaceBetween) {
+            if (showAxes) Column(Modifier.height(plotHeight), verticalArrangement = Arrangement.SpaceBetween) {
                 Text("100", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
                 Text("0", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
             }
@@ -106,7 +107,7 @@ internal fun CalmnessChart(
                     val inset = if (onReplaySecondSelected != null) 8.dp.toPx() else 3.dp.toPx()
                     val plotWidth = (size.width - 2 * inset).coerceAtLeast(0f)
                     val plotHeightPx = (size.height - 2 * inset).coerceAtLeast(0f)
-                    for (fraction in listOf(0f, 0.5f, 1f)) {
+                    if (showAxes) for (fraction in listOf(0f, 0.5f, 1f)) {
                         val y = inset + fraction * plotHeightPx
                         drawLine(HushColors.Border.copy(alpha = 0.45f), Offset(inset, y), Offset(inset + plotWidth, y), strokeWidth = 1.dp.toPx())
                     }
@@ -153,10 +154,10 @@ internal fun CalmnessChart(
                         drawCircle(HushColors.Accent, 5.dp.toPx(), handle)
                     }
                 }
-                if (latest == null) Text("No calmness data", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+                if (showAxes && latest == null) Text("No calmness data", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (showAxes) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("0:00", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
             Text(formatDuration(elapsedSeconds), style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
         }
