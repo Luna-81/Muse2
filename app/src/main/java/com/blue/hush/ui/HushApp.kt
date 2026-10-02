@@ -236,10 +236,6 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
     val sample = cursor.sampleAt(progress)
     Page("Session details", onBack) {
         LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
-            item {
-                Text(formatDate(summary.startedAt), color = HushColors.Muted)
-                Text(formatDuration(summary.actualSeconds), style = MaterialTheme.typography.displayLarge)
-            }
             item { ParticlePanel(sample, sample?.valid != true) }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 SessionScoreSummary(summary.actualSeconds, scores)
@@ -247,11 +243,9 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
             } }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Replay", style = MaterialTheme.typography.titleMedium)
-                Slider(value = progress, onValueChange = onProgress, modifier = Modifier.semantics { contentDescription = "Session replay" })
-                Text(formatDuration(sample?.elapsedSeconds ?: 0), color = HushColors.Muted)
-            } }
-            item { HushPanel(Modifier.fillMaxWidth()) {
-                CalmnessChart(samples, summary.actualSeconds, plotHeight = 160.dp)
+                CalmnessChart(samples, summary.actualSeconds, plotHeight = 160.dp,
+                    replaySecond = sample?.elapsedSeconds,
+                    onReplaySecondSelected = if (samples.isEmpty()) null else { second -> onProgress(cursor.progressAtSecond(second)) })
             } }
             item { HushPanel(Modifier.fillMaxWidth()) {
                 Text("Relative trends", style = MaterialTheme.typography.titleMedium)

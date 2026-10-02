@@ -14,6 +14,10 @@ import com.blue.hush.ui.MeditationGalaxyScreen
 import com.blue.hush.ui.SessionDetailScreen
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushTheme
+import com.blue.hush.replay.ReplayCursor
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -24,6 +28,29 @@ class CalmnessChartScreenTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun sample(second: Int, value: Double?) = StateSample(second, 0.4, 0.3, 0.2, 0.9,
         valid = true, eegBandsAvailable = true, calmness = value, algorithmVersion = 1)
+
+    @Test fun replayChartSupportsTappingDraggingAndAccessibleSeekingThroughGaps() {
+        val values = (1..100).map { sample(it, if (it == 50) null else 0.6) }
+        val cursor = ReplayCursor(values)
+        val progress = mutableStateOf(0f)
+        compose.activity.runOnUiThread {
+            compose.activity.setContent { HushTheme {
+                CalmnessChart(values, 100, replaySecond = cursor.sampleAt(progress.value)?.elapsedSeconds,
+                    onReplaySecondSelected = { progress.value = cursor.progressAtSecond(it) })
+            } }
+        }
+        val chart = compose.onNodeWithContentDescription("Session replay")
+        chart.performTouchInput { click(Offset(width * 0.75f, height / 2f)) }
+        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds in 73..77) }
+        chart.performTouchInput { swipe(Offset(width * 0.75f, height / 2f), Offset(width * 0.25f, height / 2f), 500) }
+        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds in 23..27) }
+        chart.performSemanticsAction(SemanticsActions.SetProgress) { it(50f) }
+        chart.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "00:50"))
+        compose.runOnIdle { assertNull(cursor.sampleAt(progress.value)!!.calmness) }
+        chart.performSemanticsAction(SemanticsActions.SetProgress) { it(100f) }
+        chart.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "01:40"))
+        saveScreenshot("calmness-replay.png")
+    }
 
     @Test fun liveMissingDataAndFirstMeasuredSecondUseTheSameChart() {
         val state = mutableStateOf(SessionState(phase = SessionPhase.PAUSED, connected = true,
