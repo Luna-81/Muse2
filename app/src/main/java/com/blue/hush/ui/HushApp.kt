@@ -269,7 +269,7 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
                 }
             } }
             item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
-                contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.lg)) {
+                contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
                 key(summary.id) {
                     ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
                         onMetricChanged = { metric, checked ->

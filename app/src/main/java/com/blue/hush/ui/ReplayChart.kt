@@ -102,10 +102,10 @@ internal fun ReplayChart(
             if (second >= playbackEnd) playing = false
         }
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.xs),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("Replay", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text("Replay", style = MaterialTheme.typography.titleSmall, maxLines = 1)
             Text("Relative level", modifier = Modifier.weight(1f), style = labelStyle,
                 color = HushColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(formatDuration(selectedSample?.elapsedSeconds ?: 0), style = labelStyle, color = HushColors.Accent)
@@ -119,7 +119,7 @@ internal fun ReplayChart(
             }, enabled = canPlay, modifier = Modifier.size(48.dp).semantics {
                 contentDescription = if (playing) "Pause replay" else "Play replay"
             }) {
-                Canvas(Modifier.size(20.dp)) {
+                Canvas(Modifier.size(16.dp)) {
                     val color = if (canPlay) HushColors.Accent else HushColors.Muted
                     if (playing) {
                         drawRect(color, size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height))
@@ -148,7 +148,7 @@ internal fun ReplayChart(
                 ))
             } }.sortedByDescending { it.second }
             val labelHeight = labels.sumOf { it.third.size.height } + gap * (labels.size - 1).coerceAtLeast(0)
-            val heightPx = maxOf(with(density) { (240.dp * density.fontScale.coerceAtLeast(1f)).toPx() }, labelHeight + inset * 2)
+            val heightPx = maxOf(with(density) { (304.dp * density.fontScale.coerceAtLeast(1f)).toPx() }, labelHeight + inset * 2)
             val topTickSpace = upperTick.size.height + gap
             val plotHeight = with(density) { (heightPx + topTickSpace).toDp() }
             Box {
@@ -305,25 +305,26 @@ internal fun ReplayChart(
         ).forEach { rowMetrics ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
                 rowMetrics.forEach { metric ->
-                    BoxWithConstraints(Modifier.weight(1f).heightIn(min = 48.dp).toggleable(
+                    Row(Modifier.weight(1f).heightIn(min = 48.dp).toggleable(
                         value = metric in visibleMetrics, role = Role.Checkbox,
                         onValueChange = { onMetricChanged(metric, it) },
-                    ), contentAlignment = Alignment.CenterStart) {
-                        val style = MaterialTheme.typography.labelMedium
-                        val requiredWidth = measurer.measure(metric.title, style).size.width + with(density) { 28.dp.toPx() }
-                        if (with(density) { maxWidth.toPx() } < requiredWidth) {
-                            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Checkbox(metric in visibleMetrics, onCheckedChange = null,
-                                    colors = CheckboxDefaults.colors(checkedColor = metric.color))
-                                Text(metric.title, style = style, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            }
-                        } else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(metric in visibleMetrics, onCheckedChange = null,
-                                    colors = CheckboxDefaults.colors(checkedColor = metric.color))
-                                Text(metric.title, style = style, modifier = Modifier.padding(start = HushSpace.xs))
+                    ), verticalAlignment = Alignment.CenterVertically) {
+                        Canvas(Modifier.size(16.dp)) {
+                            val checked = metric in visibleMetrics
+                            drawRoundRect(if (checked) metric.color else HushColors.Muted,
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                                style = if (checked) androidx.compose.ui.graphics.drawscope.Fill else Stroke(1.dp.toPx()))
+                            if (checked) {
+                                drawPath(Path().apply {
+                                    moveTo(size.width * 0.2f, size.height * 0.5f)
+                                    lineTo(size.width * 0.42f, size.height * 0.72f)
+                                    lineTo(size.width * 0.8f, size.height * 0.28f)
+                                }, HushColors.OnAccent, style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round))
                             }
                         }
+                        Text(metric.title, style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.weight(1f).padding(start = HushSpace.xs),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
