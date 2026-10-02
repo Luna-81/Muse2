@@ -3,6 +3,7 @@ package com.blue.hush.muse
 import android.content.Context
 import android.os.SystemClock
 import com.choosemuse.libmuse.Accelerometer
+import com.choosemuse.libmuse.Eeg
 import com.choosemuse.libmuse.Ppg
 import com.choosemuse.libmuse.ConnectionState
 import com.choosemuse.libmuse.Muse
@@ -86,6 +87,10 @@ class MuseDeviceManager(
                     device = deviceFor(muse),
                     type = packet.packetType(),
                     values = when (packet.packetType()) {
+                        MuseDataPacketType.EEG,
+                        MuseDataPacketType.ALPHA_RELATIVE,
+                        MuseDataPacketType.THETA_RELATIVE,
+                        MuseDataPacketType.BETA_RELATIVE -> listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4).map(packet::getEegChannelValue)
                         MuseDataPacketType.ACCELEROMETER -> listOf(Accelerometer.X, Accelerometer.Y, Accelerometer.Z).map(packet::getAccelerometerValue)
                         MuseDataPacketType.PPG -> listOf(Ppg.IR, Ppg.RED).map(packet::getPpgChannelValue)
                         else -> packet.values().map { it.toDouble() }

@@ -58,6 +58,8 @@ data class SessionSummary(
     val isBundledSimulation: Boolean get() = id == BUNDLED_SIMULATION_SESSION_ID
 }
 
+enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, UNKNOWN, MISSING }
+
 data class SessionState(
     val phase: SessionPhase = SessionPhase.IDLE,
     val sessionId: Long? = null,
@@ -74,6 +76,8 @@ data class SessionState(
     val result: ResultLabel? = null,
     val message: String? = null,
     val calibrationSeconds: Int = 0,
+    val eegStatus: EegSignalStatus = EegSignalStatus.UNKNOWN,
+    val eegNotice: EegSignalStatus? = null,
     val calmnessSampleCount: Int = 0,
     val trendSamples: List<StateSample> = emptyList(),
     val scores: SessionScores = SessionScores(),

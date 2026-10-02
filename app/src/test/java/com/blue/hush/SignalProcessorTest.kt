@@ -11,7 +11,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 class SignalProcessorTest {
-    @Test fun diagnosticsDistinguishMissingBandsFromContactFilteringAndResetEachSecond() {
+    @Test fun diagnosticsDistinguishMissingBandsFromQualityFilteringAndResetEachSecond() {
         val processor = SignalProcessor()
         processor.accept(MuseDataPacketType.EEG, listOf(1.0), 0)
         processor.accept(MuseDataPacketType.ACCELEROMETER, listOf(0.0, 0.0, 1.0), 0)
@@ -20,13 +20,14 @@ class SignalProcessorTest {
         assertEquals(1, processor.latestDiagnostics.rawEegPackets)
         assertEquals(1, processor.latestDiagnostics.accelerationPackets)
 
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 1100)
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 1100)
         processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), 1100)
         processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), 1100)
         processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 1100)
         val rejected = processor.nextSample(2, 2000)
         assertNull(rejected.calmness)
-        assertEquals("CONTACT_REJECTED", processor.latestDiagnostics.status)
+        assertEquals("LOW_QUALITY", processor.latestDiagnostics.status)
         assertEquals(listOf(1, 1, 1), processor.latestDiagnostics.bandPackets)
         assertEquals(1, processor.latestDiagnostics.numericChannels)
         assertEquals(0, processor.latestDiagnostics.usableChannels)
@@ -36,13 +37,13 @@ class SignalProcessorTest {
         assertEquals("NO_EEG_PACKETS", processor.latestDiagnostics.status)
         assertEquals(listOf(0, 0, 0), processor.latestDiagnostics.bandPackets)
 
-        // A stale quality flag must not turn a received window into contact rejection.
+        // A stale quality flag leaves arriving bands untrusted rather than accepting them.
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 3500)
         processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), 3500)
         processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), 3500)
-        assertTrue(processor.nextSample(4, 4000).eegBandsAvailable)
+        assertFalse(processor.nextSample(4, 4000).eegBandsAvailable)
         assertFalse(processor.latestDiagnostics.qualityFresh)
-        assertEquals("CALIBRATING", processor.latestDiagnostics.status)
+        assertEquals("QUALITY_UNKNOWN", processor.latestDiagnostics.status)
         processor.setCollecting(false)
         processor.accept(MuseDataPacketType.EEG, listOf(1.0), 4500)
         processor.nextSample(5, 5000)
@@ -52,6 +53,7 @@ class SignalProcessorTest {
 
     @Test fun repeatedCollectingNotificationKeepsTheCurrentPacketWindow() {
         val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0))
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
         processor.setCollecting(true)
         processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
@@ -64,6 +66,7 @@ class SignalProcessorTest {
         var sample = processor.nextSample(0, 0)
         for (second in 1..10) {
             processor.setCollecting(true)
+            processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0))
             processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
             processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
             processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2))
@@ -77,6 +80,7 @@ class SignalProcessorTest {
         val processor = SignalProcessor()
         var sample = processor.nextSample(0, 0)
         for (second in 1..22) {
+            processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), second * 1000L - 500)
             processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), second * 1000L - 500)
             processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), second * 1000L - 500)
             processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), second * 1000L - 500)
@@ -111,8 +115,9 @@ class SignalProcessorTest {
         assertNull(processor.nextSample(4, 4000).stillness)
     }
 
-    @Test fun explicitPoorContactRejectsEegButKeepsMotionMeasured() {
+    @Test fun explicitPoorQualityRejectsEegButKeepsMotionMeasured() {
         val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 0)
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 0)
         processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), 0)
         processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), 0)
@@ -139,6 +144,7 @@ class SignalProcessorTest {
     @Test
     fun aggregatesAndSmoothsValidSecond() {
         val processor = SignalProcessor(smoothingFactor = 0.5)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0, 1.0))
         repeat(4) {
             processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4, 0.6))
             processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.2, 0.4))
@@ -168,6 +174,7 @@ class SignalProcessorTest {
     @Test
     fun liveBandAvailabilityDoesNotCarryAcrossSeconds() {
         val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0))
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
         processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
         processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2))
@@ -177,7 +184,8 @@ class SignalProcessorTest {
         val partial = processor.nextSample(2)
         assertTrue(partial.valid)
         assertFalse(partial.eegBandsAvailable)
-        assertTrue(partial.alpha != null && partial.theta != null)
+        assertNull(partial.alpha)
+        assertNull(partial.theta)
         assertNull(partial.beta)
         assertFalse(processor.nextSample(3).eegBandsAvailable)
     }
@@ -186,6 +194,7 @@ class SignalProcessorTest {
     fun nonFiniteAndOutOfRangeBandsAreNotMeasuredEeg() {
         listOf(Double.NaN, Double.POSITIVE_INFINITY, -0.1, 1.1).forEach { invalid ->
             val processor = SignalProcessor()
+            processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0))
             processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
             processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
             processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(invalid))

@@ -1,6 +1,7 @@
 package com.blue.hush.processing
 
 import com.blue.hush.session.StateSample
+import com.blue.hush.session.EegSignalStatus
 import com.choosemuse.libmuse.MuseDataPacketType
 import kotlin.math.exp
 import kotlin.math.sqrt
@@ -8,6 +9,10 @@ import kotlin.math.sqrt
 /** Aggregates measured fields per second; unavailable fields remain null. */
 class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHING) {
     private val bands = List(3) { mutableListOf<List<Double>>() }
+    private val acceptedBands = List(3) { mutableListOf<List<Double?>>() }
+    private val qualityAccepted = IntArray(4)
+    private val qualityRejected = IntArray(4)
+    private val qualityUnknown = IntArray(4)
     private val motionEnergy = mutableListOf<Double>()
     private val heart = HeartRateEstimator()
     private val calmness = CalmnessEstimator(smoothingFactor)
@@ -44,10 +49,10 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             else -> Unit
         }
         when (type) {
-            MuseDataPacketType.ALPHA_RELATIVE -> acceptBand(0, values)
-            MuseDataPacketType.THETA_RELATIVE -> acceptBand(1, values)
-            MuseDataPacketType.BETA_RELATIVE -> acceptBand(2, values)
-            MuseDataPacketType.IS_GOOD -> { eegQuality = values; eegQualityAt = receivedAtMillis }
+            MuseDataPacketType.ALPHA_RELATIVE -> acceptBand(0, values, receivedAtMillis)
+            MuseDataPacketType.THETA_RELATIVE -> acceptBand(1, values, receivedAtMillis)
+            MuseDataPacketType.BETA_RELATIVE -> acceptBand(2, values, receivedAtMillis)
+            MuseDataPacketType.IS_GOOD -> { eegQuality = values.take(4); eegQualityAt = receivedAtMillis }
             MuseDataPacketType.IS_PPG_GOOD -> {
                 ppgGood = values.any { it.isFinite() && it > 0 }; ppgQualityAt = receivedAtMillis
                 if (ppgGood == false) heart.reset()
@@ -90,9 +95,22 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         }
     }
 
-    private fun acceptBand(index: Int, values: List<Double>) {
-        bands[index] += values
-        if (values.any { it.isFinite() && it in 0.0..1.0 }) receivedSensorData = true
+    private fun acceptBand(index: Int, values: List<Double>, receivedAtMillis: Long) {
+        bands[index] += values.take(4)
+        if (values.take(4).any { it.isFinite() && it in 0.0..1.0 }) receivedSensorData = true
+        val fresh = eegQualityAt?.let { receivedAtMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true
+        // Evaluate quality at arrival. Later flags cannot retroactively accept or erase a packet.
+        val accepted = List(4) { channel ->
+            val value = values.getOrNull(channel)?.takeIf { it.isFinite() && it in 0.0..1.0 }
+            val quality = if (fresh) eegQuality.getOrNull(channel) else null
+            when {
+                value == null -> null
+                quality == 1.0 -> { qualityAccepted[channel]++; value }
+                quality == 0.0 -> { qualityRejected[channel]++; null }
+                else -> { qualityUnknown[channel]++; null }
+            }
+        }
+        if (accepted.any { it != null }) acceptedBands[index] += accepted
     }
 
     @Synchronized
@@ -101,16 +119,22 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         val numericChannels = (0 until (bands.flatMap { it }.maxOfOrNull { it.size } ?: 0)).filter { channel ->
             bands.all { packets -> packets.any { it.getOrNull(channel)?.let { value -> value.isFinite() && value in 0.0..1.0 } == true } }
         }
-        val channels = numericChannels.filter { channel ->
-            !qualityFresh || eegQuality.getOrNull(channel)?.let { it.isFinite() && it > 0 } != false
+        val channels = (0..3).filter { channel ->
+            acceptedBands.all { packets -> packets.any { it[channel] != null } }
         }
-        val raw = bands.map { packets ->
-            val values = packets.flatMap { packet -> packet.mapIndexedNotNull { channel, value ->
-                value.takeIf { it.isFinite() && it in 0.0..1.0 &&
-                    (!qualityFresh || eegQuality.getOrNull(channel)?.let { good -> good.isFinite() && good > 0 } != false) &&
-                    (channels.isEmpty() || channel in channels) }
-            } }
+        val aggregated = acceptedBands.map { packets ->
+            val values = packets.flatMap { packet -> channels.mapNotNull { packet[it] } }
             values.takeIf { it.isNotEmpty() }?.average()
+        }
+        // Persist only complete trusted bands; partial rows must never enter historical Focus scores.
+        val available = aggregated.all { it != null } && aggregated.sumOf { it ?: 0.0 } > 0
+        val raw = if (available) aggregated else List(3) { null }
+        val eegStatus = when {
+            available -> EegSignalStatus.AVAILABLE
+            bands.any { it.isEmpty() } -> EegSignalStatus.MISSING
+            numericChannels.isEmpty() -> EegSignalStatus.LOW_QUALITY
+            qualityUnknown.any { it > 0 } -> EegSignalStatus.UNKNOWN
+            else -> EegSignalStatus.LOW_QUALITY
         }
         val measured = raw.mapIndexed { index, value ->
             value?.let { current -> smooth(smoothedBands[index], current).also { smoothedBands[index] = it } }
@@ -123,16 +147,21 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             elapsedSeconds = elapsedSeconds,
             alpha = measured[0], theta = measured[1], beta = measured[2], stillness = stillness,
             valid = receivedSensorData,
-            eegBandsAvailable = channels.isNotEmpty() && raw.all { it != null }, heartRateBpm = bpm,
+            eegBandsAvailable = available, heartRateBpm = bpm,
         ))
         diagnostics = SignalDiagnostics(
             rawEegPackets = rawEegPackets,
             bandPackets = bands.map { it.size },
+            acceptedBandPackets = acceptedBands.map { it.size },
+            qualityAccepted = qualityAccepted.toList(),
+            qualityRejected = qualityRejected.toList(),
+            qualityUnknown = qualityUnknown.toList(),
             accelerationPackets = accelerationPackets,
             ppgPackets = ppgPackets,
             numericChannels = numericChannels.size,
-            usableChannels = channels.size,
+            usableChannels = if (available) channels.size else 0,
             qualityFresh = qualityFresh,
+            qualityAgeMillis = eegQualityAt?.let { nowMillis - it },
             quality = eegQuality.toList(),
             calibrationSeconds = calmness.calibrationSeconds,
             status = when {
@@ -140,13 +169,16 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
                 bands.all { it.isEmpty() } -> if (rawEegPackets > 0) "EEG_WITHOUT_BANDS" else "NO_EEG_PACKETS"
                 bands.any { it.isEmpty() } -> "INCOMPLETE_BANDS"
                 numericChannels.isEmpty() -> "INVALID_BANDS"
-                channels.isEmpty() -> "CONTACT_REJECTED"
+                eegStatus == EegSignalStatus.UNKNOWN -> "QUALITY_UNKNOWN"
+                !available -> "LOW_QUALITY"
                 calmness.calibrationSeconds < SignalRules.BASELINE_SECONDS -> "CALIBRATING"
                 else -> "READY"
             },
+            eegStatus = eegStatus,
         )
         clearPacketCounts()
         bands.forEach { it.clear() }
+        acceptedBands.forEach { it.clear() }
         motionEnergy.clear()
         receivedSensorData = false
         return sample
@@ -173,6 +205,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     private fun clearWindows() {
         clearPacketCounts()
         bands.forEach { it.clear() }
+        acceptedBands.forEach { it.clear() }
         motionEnergy.clear()
         receivedSensorData = false
         heart.reset()
@@ -192,6 +225,9 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         rawEegPackets = 0
         accelerationPackets = 0
         ppgPackets = 0
+        qualityAccepted.fill(0)
+        qualityRejected.fill(0)
+        qualityUnknown.fill(0)
     }
     private fun qualityAllows(value: Boolean?, timestamp: Long?, now: Long): Boolean =
         !(value == false && timestamp != null && now - timestamp in 0..SignalRules.QUALITY_TTL_MILLIS)

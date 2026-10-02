@@ -25,6 +25,8 @@ import com.blue.hush.session.SessionClock
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionRuntime
 import com.blue.hush.session.SessionState
+import com.blue.hush.session.EegSignalStatus
+import com.blue.hush.session.EegNoticeTracker
 import com.blue.hush.session.SessionSamples
 import com.blue.hush.session.StateSample
 import com.blue.hush.storage.HushDatabase
@@ -34,6 +36,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private val handler = Handler(Looper.getMainLooper())
     private val clock = SessionClock()
     private val processor = SignalProcessor()
+    private val eegNotices = EegNoticeTracker()
     private var diagnosticLog: SignalDiagnosticLog? = null
     private val samples = SessionSamples()
     private lateinit var database: HushDatabase
@@ -59,6 +62,10 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                     diagnosticLog?.sample(elapsedSeconds, currentState.connected,
                         elapsedSeconds - samples.lastSecond - 1, processor.latestDiagnostics)
                     val newSamples = samples.record(sample)
+                    val eegStatus = if (simulationMode) {
+                        if (sample.eegBandsAvailable) EegSignalStatus.AVAILABLE else EegSignalStatus.MISSING
+                    } else processor.latestDiagnostics.eegStatus
+                    val eegNotice = if (currentState.connected) eegNotices.update(elapsedSeconds, eegStatus) else null
                     sessionId?.let { id -> newSamples.forEach { database.insertSample(id, it) } }
                     publish(
                         currentState.copy(
@@ -68,8 +75,10 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                             validSampleCount = samples.validCount,
                             calmnessSampleCount = samples.calmnessCount,
                             calibrationSeconds = if (simulationMode) replaySamples.take(elapsedSeconds).count { it.eegBandsAvailable }.coerceAtMost(10) else processor.calibrationSeconds,
+                            eegStatus = eegStatus,
+                            eegNotice = eegNotice,
                             trendSamples = samples.all,
-                            // Keep the last valid visual state visible while a signal gap is shown.
+                            // The renderer keeps its visual parameters independently during an EEG gap.
                             latestSample = samples.visualSample,
                             message = if (sample.valid) null else "Not enough valid sensor data for this second",
                         ),
@@ -161,10 +170,12 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             }
             ConnectionState.DISCONNECTED -> {
                 processor.setCollecting(false)
+                eegNotices.reset()
                 isConnecting = false
                 publish(
                     currentState.copy(
                         connected = false,
+                        eegNotice = null,
                         dataGap = true,
                         message = "Muse 2 disconnected; timer continues while reconnecting",
                     ),
@@ -204,6 +215,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         diagnosticLog = if (simulationMode) null else SignalDiagnosticLog(applicationContext, sessionId!!)
         samples.clear()
         processor.reset()
+        eegNotices.reset()
         processor.setCollecting(false)
         clock.start(SystemClock.elapsedRealtime())
         audioEngine = AmbientAudioEngine(applicationContext).also {
@@ -238,8 +250,9 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         diagnosticLog?.event("pause")
         processor.setCollecting(false)
         audioEngine?.pause()
+        eegNotices.reset()
         handler.removeCallbacks(tick)
-        publish(currentState.copy(phase = SessionPhase.PAUSED, message = "Paused; timing and collection are temporarily stopped"))
+        publish(currentState.copy(phase = SessionPhase.PAUSED, eegNotice = null, message = "Paused; timing and collection are temporarily stopped"))
         updateNotification()
     }
 

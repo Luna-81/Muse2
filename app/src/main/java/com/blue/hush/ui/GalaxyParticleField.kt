@@ -55,9 +55,11 @@ internal fun rememberGalaxyMotion(): GalaxyMotion =
 internal fun GalaxyParticleField(
     sample: StateSample?, dataGap: Boolean, paused: Boolean, modifier: Modifier = Modifier,
     state: GalaxyMotion = rememberGalaxyMotion(), preview: Boolean = false,
+    continueWhenMissing: Boolean = false,
 ) {
     // Preview is decorative; live missing data must never be interpreted as calm.
     val target = rememberUpdatedState(if (preview) 0f else if (dataGap) null else galaxyAgitation(sample))
+    val keepMoving = rememberUpdatedState(continueWhenMissing)
     val frame = remember(state) { mutableFloatStateOf(0f) }
 
     val view = LocalView.current
@@ -70,7 +72,7 @@ internal fun GalaxyParticleField(
                 withFrameNanos { now ->
                     val dt = if (previous == 0L) 0f else (now - previous) / 1_000_000_000f
                     previous = now
-                    state.advance(dt, target.value)
+                    state.advance(dt, target.value, keepMoving.value)
                     frame.floatValue += 1f
 
                 }

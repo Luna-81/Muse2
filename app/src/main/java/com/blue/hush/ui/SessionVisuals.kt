@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -42,18 +43,44 @@ internal fun TrendChart(samples: List<StateSample>) {
         val values = listOf<(StateSample) -> Double?>({ it.alpha }, { it.theta }, { it.beta }, { it.stillness })
         values.forEachIndexed { seriesIndex, selector ->
             var path: Path? = null
+            var previousPoint: Offset? = null
+            var previousSecond: Int? = null
+            var lastTrustedPoint: Offset? = null
+            var lastTrustedSecond: Int? = null
+            var pointCount = 0
+            fun flush() {
+                if (pointCount == 1) previousPoint?.let { drawCircle(colors[seriesIndex], 2f, it) }
+                else path?.let { drawPath(it, colors[seriesIndex], style = Stroke(width = 4f, cap = StrokeCap.Round)) }
+                path = null
+                previousPoint = null
+                previousSecond = null
+                pointCount = 0
+            }
             samples.forEachIndexed { index, sample ->
                 val value = selector(sample)
                 if (!sample.valid || value == null || !value.isFinite()) {
-                    path?.let { drawPath(it, colors[seriesIndex], style = Stroke(width = 4f)) }
-                    path = null
+                    flush()
                     return@forEachIndexed
                 }
                 val x = index.toFloat() / (samples.lastIndex).coerceAtLeast(1) * size.width
                 val y = size.height - value.toFloat().coerceIn(0f, 1f) * size.height
-                if (path == null) path = Path().also { it.moveTo(x, y) } else path?.lineTo(x, y)
+                if (previousSecond != null && sample.elapsedSeconds != previousSecond!! + 1) flush()
+                val point = Offset(x, y)
+                if (lastTrustedSecond != null && sample.elapsedSeconds > lastTrustedSecond!! + 1) {
+                    lastTrustedPoint?.let { drawChartBridge(it, point, colors[seriesIndex], 4f) }
+                }
+                if (path == null) path = Path().also { it.moveTo(x, y) }
+                else previousPoint?.let { path?.smoothLineTo(it, point) }
+                previousPoint = point
+                previousSecond = sample.elapsedSeconds
+                pointCount++
+                lastTrustedPoint = point
+                lastTrustedSecond = sample.elapsedSeconds
             }
-            path?.let { drawPath(it, colors[seriesIndex], style = Stroke(width = 4f)) }
+            flush()
+            if (lastTrustedSecond != null && lastTrustedSecond!! < (samples.lastOrNull()?.elapsedSeconds ?: 0)) {
+                lastTrustedPoint?.let { drawChartBridge(it, Offset(size.width, it.y), colors[seriesIndex], 4f) }
+            }
         }
     }
 }

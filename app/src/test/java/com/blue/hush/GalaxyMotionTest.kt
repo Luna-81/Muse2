@@ -9,6 +9,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GalaxyMotionTest {
+    @Test fun liveGapKeepsDriftingWithoutChangingTheLastTrustedAgitation() {
+        val motion = GalaxyMotion()
+        repeat(300) { motion.advance(1f / 60, 0.8f) }
+        val agitation = motion.agitation
+        val phase = motion.phase
+        repeat(600) { motion.advance(1f / 60, null, continueWhenMissing = true) }
+        assertTrue(motion.phase > phase)
+        assertEquals(agitation, motion.agitation, 0f)
+        assertTrue(motion.visibility < 0.27f)
+        val pausedPhase = motion.phase
+        motion.advance(0f, null, continueWhenMissing = true)
+        assertEquals(pausedPhase, motion.phase, 0f)
+        val uncalibrated = GalaxyMotion()
+        uncalibrated.advance(0.05f, null, continueWhenMissing = true)
+        assertTrue(uncalibrated.phase > 0f)
+        assertEquals(0f, uncalibrated.agitation, 0f)
+    }
+
     @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {
         val composite = sample(0.4).copy(algorithmVersion = 1, calmness = 0.8)
         assertEquals(0.2f, galaxyAgitation(composite)!!, 0.000001f)

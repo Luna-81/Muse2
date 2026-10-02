@@ -10,8 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -23,7 +26,24 @@ import java.util.Locale
 
 internal fun StateSample.chartCalmness(): Double? = calmness?.takeIf { valid && it.isFinite() && it in 0.0..1.0 }
 
-/** Shares persisted values and time coordinates with the live chart; never interpolates gaps. */
+// Horizontal endpoint tangents round corners without overshooting either recorded value.
+internal fun Path.smoothLineTo(previous: Offset, next: Offset) {
+    val handle = (next.x - previous.x) / 3f
+    cubicTo(previous.x + handle, previous.y, next.x - handle, next.y, next.x, next.y)
+}
+
+// A subdued dashed bridge is visual interpolation, not an accepted measurement.
+internal fun DrawScope.drawChartBridge(from: Offset, to: Offset, color: Color, width: Float) {
+    if (to.x <= from.x) return
+    val bridge = Path().apply {
+        moveTo(from.x, from.y)
+        smoothLineTo(from, to)
+    }
+    drawPath(bridge, color.copy(alpha = 0.45f), style = Stroke(width, cap = StrokeCap.Round,
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 3.dp.toPx()))))
+}
+
+/** Uses recorded values; visually bridges gaps without adding statistical samples. */
 @Composable
 internal fun CalmnessChart(samples: List<StateSample>, elapsedSeconds: Int, plotHeight: Dp = 96.dp, calibrating: Boolean = false) {
     val latest = remember(samples) { samples.lastOrNull { it.chartCalmness() != null }?.chartCalmness() }
@@ -45,19 +65,40 @@ internal fun CalmnessChart(samples: List<StateSample>, elapsedSeconds: Int, plot
                         drawLine(HushColors.Border.copy(alpha = 0.45f), Offset(inset, y), Offset(inset + plotWidth, y), strokeWidth = 1.dp.toPx())
                     }
                     var path: Path? = null
+                    var previousPoint: Offset? = null
+                    var pointCount = 0
                     var previousSecond: Int? = null
-                    fun flush() { path?.let { drawPath(it, HushColors.Lavender, style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round)) }; path = null }
+                    var lastTrustedPoint: Offset? = null
+                    var lastTrustedSecond: Int? = null
+                    fun flush() {
+                        if (pointCount == 1) previousPoint?.let { drawCircle(HushColors.Lavender, 2.dp.toPx(), it) }
+                        else path?.let { drawPath(it, HushColors.Lavender, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)) }
+                        path = null
+                        previousPoint = null
+                        pointCount = 0
+                    }
                     for (sample in samples) {
                         val value = sample.chartCalmness()
                         if (value == null) { flush(); previousSecond = null; continue }
                         if (previousSecond != null && sample.elapsedSeconds != previousSecond + 1) flush()
                         val point = Offset(inset + sample.elapsedSeconds.toFloat() / elapsedSeconds.coerceAtLeast(1) * plotWidth,
                             inset + (1 - value.toFloat()) * plotHeightPx)
-                        if (path == null) path = Path().apply { moveTo(point.x, point.y) } else path?.lineTo(point.x, point.y)
-                        drawCircle(HushColors.Lavender, 1.5.dp.toPx(), point)
+                        if (lastTrustedSecond != null && sample.elapsedSeconds > lastTrustedSecond!! + 1) {
+                            lastTrustedPoint?.let { drawChartBridge(it, point, HushColors.Lavender, 2.dp.toPx()) }
+                        }
+                        if (path == null) path = Path().apply { moveTo(point.x, point.y) }
+                        else previousPoint?.let { path?.smoothLineTo(it, point) }
+                        previousPoint = point
+                        pointCount++
                         previousSecond = sample.elapsedSeconds
+                        lastTrustedPoint = point
+                        lastTrustedSecond = sample.elapsedSeconds
                     }
                     flush()
+                    // Hold the last known level decoratively while waiting for a new trusted value.
+                    if (lastTrustedSecond != null && lastTrustedSecond!! < elapsedSeconds) {
+                        lastTrustedPoint?.let { drawChartBridge(it, Offset(inset + plotWidth, it.y), HushColors.Lavender, 2.dp.toPx()) }
+                    }
                 }
                 if (latest == null && !calibrating) Text("No calmness data", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
             }

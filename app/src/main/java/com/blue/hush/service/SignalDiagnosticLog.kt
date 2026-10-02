@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.os.SystemClock
 import android.util.Log
 import com.blue.hush.processing.SignalDiagnostics
+import com.blue.hush.processing.SignalRules
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -32,17 +33,25 @@ internal class SignalDiagnosticLog(context: Context, private val sessionId: Long
         write(JSONObject()
             .put("event", "sample")
             .put("second", second)
+            .put("algorithm_version", SignalRules.VERSION)
             .put("connected", connected)
             .put("skipped_seconds", skippedSeconds)
             .put("raw_eeg_packets", diagnostics.rawEegPackets)
             .put("band_packets", JSONArray(diagnostics.bandPackets))
+            .put("accepted_band_packets", JSONArray(diagnostics.acceptedBandPackets))
+            .put("quality_accepted", JSONArray(diagnostics.qualityAccepted))
+            .put("quality_rejected", JSONArray(diagnostics.qualityRejected))
+            .put("quality_unknown", JSONArray(diagnostics.qualityUnknown))
             .put("acceleration_packets", diagnostics.accelerationPackets)
             .put("ppg_packets", diagnostics.ppgPackets)
             .put("numeric_channels", diagnostics.numericChannels)
             .put("usable_channels", diagnostics.usableChannels)
+            // This is the latest flag, not necessarily the flag that accepted an earlier packet.
             .put("quality_fresh", diagnostics.qualityFresh)
+            .put("quality_age_ms", diagnostics.qualityAgeMillis ?: JSONObject.NULL)
             .put("is_good", JSONArray(diagnostics.quality.map { if (it.isFinite()) it else JSONObject.NULL }))
             .put("calibration_seconds", diagnostics.calibrationSeconds)
+            .put("eeg_status", diagnostics.eegStatus.name)
             .put("status", diagnostics.status))
     }
 

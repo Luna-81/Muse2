@@ -32,13 +32,16 @@ internal class GalaxyMotion(phase: Float = 0f, agitation: Float = 0f, visibility
         visibility = if (target == null) 0.25f else 1f
     }
 
-    fun advance(seconds: Float, target: Float?) {
+    fun advance(seconds: Float, target: Float?, continueWhenMissing: Boolean = false) {
         // Do not catch up missed frames after a stall or background interval.
         val dt = seconds.coerceIn(0f, 0.05f)
         val fade = 1f - exp(-dt / 2.5f)
         visibility += ((if (target == null) 0.25f else 1f) - visibility) * fade
-        // Missing composite data freezes the actual shape, rather than implying calm.
-        if (target == null) return
+        // Live gaps retain visual parameters and drift; recorded gaps retain the original freeze.
+        if (target == null) {
+            if (continueWhenMissing) phase += dt * (0.07f + agitation * 0.16f)
+            return
+        }
         val duration = if (target < agitation) 4f else 2.5f
         agitation += (target - agitation) * (1f - exp(-dt / duration))
         phase += dt * (0.07f + agitation * 0.16f)

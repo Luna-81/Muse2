@@ -7,7 +7,7 @@ import kotlin.math.ln
 
 /** Demo heuristics, not a validated meditation or medical assessment. */
 internal object SignalRules {
-    const val VERSION = 1
+    const val VERSION = 2
     const val BASELINE_SECONDS = 10
     const val EPSILON = 0.000001
     const val MAD_SCALE = 1.4826
