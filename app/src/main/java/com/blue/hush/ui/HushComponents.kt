@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -21,10 +22,14 @@ import com.blue.hush.ui.theme.HushShapes
 import com.blue.hush.ui.theme.HushSpace
 
 @Composable
-internal fun HushPanel(modifier: Modifier = Modifier, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+internal fun HushPanel(
+    modifier: Modifier = Modifier, compact: Boolean = false,
+    contentPadding: PaddingValues = PaddingValues(if (compact) HushSpace.md else HushSpace.lg),
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Surface(modifier.animateContentSize(tween(HushMotion.TransitionMillis)), shape = HushShapes.Panel, color = HushColors.Surface.copy(alpha = 0.92f),
         border = BorderStroke(1.dp, HushColors.Border.copy(alpha = 0.65f))) {
-        Column(Modifier.padding(if (compact) HushSpace.md else HushSpace.lg),
+        Column(Modifier.padding(contentPadding),
             verticalArrangement = Arrangement.spacedBy(if (compact) HushSpace.xs else HushSpace.md), content = content)
     }
 }

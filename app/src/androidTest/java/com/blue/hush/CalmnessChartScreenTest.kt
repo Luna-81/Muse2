@@ -96,7 +96,7 @@ class CalmnessChartScreenTest {
         saveScreenshot("calmness-live.png")
     }
 
-    @Test fun historyAddsCalmnessAndPreservesRelativeTrendsAndLegacyEmptyState() {
+    @Test fun historyUsesCombinedReplayAndPreservesLegacyMeasurements() {
         compose.mainClock.autoAdvance = false
         val values = mutableStateOf(listOf(sample(10, 0.7), sample(11, 0.8)))
         val summary = SessionSummary(1, 0, 11000, 600, 11, MusicTrack.MIST, ResultLabel.STEADY, 2, 2)
@@ -105,21 +105,17 @@ class CalmnessChartScreenTest {
         }
         compose.mainClock.advanceTimeBy(32)
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
-        compose.mainClock.advanceTimeBy(32)
-        compose.onNodeWithText("Calmness").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Calmness trend, latest 80 out of 100").assertExists()
-        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(3)
-        compose.mainClock.advanceTimeBy(32)
-        compose.onNodeWithText("Relative trends").assertIsDisplayed()
-        compose.onNodeWithText("Alpha · Theta · Beta · Stillness").performScrollTo().assertIsDisplayed()
-        saveScreenshot("calmness-history.png")
+        compose.onNodeWithText("Relative level").assertExists()
+        compose.onNodeWithText("Relative trends").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Session replay").assertExists()
+        val plotWidth = compose.onNodeWithContentDescription("Session replay").fetchSemanticsNode().boundsInRoot.width
+        assertTrue(plotWidth > compose.onRoot().fetchSemanticsNode().boundsInRoot.width * 0.8f)
         compose.runOnIdle { values.value = values.value.map { it.copy(calmness = null, algorithmVersion = 0) } }
         compose.mainClock.advanceTimeBy(32)
-        compose.onNode(hasScrollToIndexAction()).performScrollToIndex(2)
-        compose.mainClock.advanceTimeBy(32)
-        compose.onNodeWithText("No calmness data").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Calmness —").assertDoesNotExist()
+        compose.onNodeWithText(summary.result.description).assertDoesNotExist()
+        saveScreenshot("calmness-history.png")
     }
-
     @Test fun renderedCurveLeavesGapsAndStillDrawsAnIsolatedPoint() {
         val values = listOf(sample(1, 0.2), sample(2, 0.8), sample(3, null), sample(4, 0.2), sample(5, 0.8))
         compose.activity.runOnUiThread {

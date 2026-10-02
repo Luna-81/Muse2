@@ -2,11 +2,27 @@ package com.blue.hush
 
 import com.blue.hush.session.StateSample
 import com.blue.hush.ui.ReplayMetric
+import com.blue.hush.ui.ReplayViewport
 import com.blue.hush.ui.replayLabelTops
 import org.junit.Assert.*
 import org.junit.Test
 
 class ReplayChartModelTest {
+    @Test fun zoomKeepsAnchorAndClampsPanAndScale() {
+        val zoomed = ReplayViewport().transform(2f, 0.25f, 0f, 600)
+        assertEquals(0.5f, zoomed.span, 0.0001f)
+        assertEquals(150f, zoomed.secondAt(0.25f, 600), 0.0001f)
+        assertEquals(0f, zoomed.transform(1f, 0.5f, 10f, 600).start, 0f)
+        val end = zoomed.transform(1f, 0.5f, -10f, 600)
+        assertEquals(1f, end.end, 0f)
+        assertEquals(0.1f, zoomed.transform(100f, 0.5f, 0f, 600).span, 0f)
+        assertEquals(ReplayViewport(), zoomed.transform(0.001f, 0.5f, 0f, 600))
+        assertEquals(zoomed, zoomed.transform(Float.NaN, 0.5f, 0f, 600))
+        assertEquals(ReplayViewport(), ReplayViewport().transform(10f, 0.5f, 0f, 1))
+        assertEquals(0f, zoomed.reveal(0f, 600).start, 0f)
+        assertEquals(1f, zoomed.reveal(600f, 600).end, 0f)
+    }
+
     @Test fun fixedMappingAndDisplayKeepActualBpm() {
         assertEquals(0.0, ReplayMetric.HEART_RATE.level(40.0), 0.0)
         assertEquals(1.0, ReplayMetric.HEART_RATE.level(180.0), 0.0)

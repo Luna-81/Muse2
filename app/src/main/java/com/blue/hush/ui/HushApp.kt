@@ -252,26 +252,34 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
         samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
     }
     Page("Session details", onBack) {
-        LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
-            item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
-                    modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
-                HushPanel(Modifier.fillMaxWidth()) {
-                    SessionScoreSummary(summary.actualSeconds, scores, compact = true)
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+                    Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
+                        modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
+                    HushPanel(Modifier.fillMaxWidth()) {
+                        SessionScoreSummary(summary.actualSeconds, scores, compact = true)
+                    }
                 }
             } }
-            item { ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample) }
-            item { HushPanel(Modifier.fillMaxWidth()) {
-                Text("Replay", style = MaterialTheme.typography.titleMedium)
-                ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
-                    onMetricChanged = { metric, checked ->
-                        val bit = 1 shl metric.ordinal
-                        visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
-                    },
-                    onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) })
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl)) {
+                    ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample)
+                }
             } }
-            item { Text(if (summary.resultSampleCount >= 2) summary.result.description else "Not enough signal to describe this session.", color = HushColors.Muted) }
+            item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+                contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.lg)) {
+                Text("Replay", style = MaterialTheme.typography.titleMedium)
+                key(summary.id) {
+                    ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
+                        onMetricChanged = { metric, checked ->
+                            val bit = 1 shl metric.ordinal
+                            visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
+                        },
+                        onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) })
+                }
+            } }
         }
     }
 }
