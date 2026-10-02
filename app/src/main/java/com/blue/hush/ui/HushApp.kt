@@ -26,6 +26,7 @@ import com.choosemuse.libmuse.ConnectionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 enum class AppTab(val title: String) { MEDITATE("Home"), HISTORY("History") }
 data class ConnectionUiState(
@@ -218,12 +219,18 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
                             pendingDeleteId = summary.id
                             true
                         })
-                    }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
+                    }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                         MindprintThumbnail(summary.id, Modifier.size(56.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                            Text(formatDate(summary.startedAt), style = MaterialTheme.typography.titleMedium)
+                            Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)}", style = MaterialTheme.typography.titleMedium)
                             Text("${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
                             Text(if (summary.resultSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
+                        }
+                        Column(Modifier.widthIn(min = 40.dp).semantics {
+                            contentDescription = "Calm score: ${summary.calm?.roundToInt()?.let { "$it out of 100" } ?: "unavailable"}"
+                        }, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
+                            Text("Calm", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
+                            Text(summary.calm?.roundToInt()?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall, color = HushColors.Lavender)
                         }
                     }
                 }
@@ -267,3 +274,4 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
 }
 internal fun formatDuration(seconds: Int): String = String.format(Locale.US, "%02d:%02d", seconds.coerceAtLeast(0) / 60, seconds.coerceAtLeast(0) % 60)
 private fun formatDate(timestamp: Long): String = SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).format(Date(timestamp))
+private fun formatTime(timestamp: Long): String = SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(timestamp))

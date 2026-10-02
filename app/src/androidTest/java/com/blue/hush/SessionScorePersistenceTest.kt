@@ -27,6 +27,7 @@ class SessionScorePersistenceTest {
                 assertNotNull(scores.stability)
                 assertNotNull(scores.heartRateBpm)
                 assertEquals(scores, SessionScoreCalculator.calculate(database.loadSamples(id)))
+                assertEquals(scores.calm, database.loadSummaries().single().calm)
             }
         } finally {
             context.deleteDatabase("hush.db")

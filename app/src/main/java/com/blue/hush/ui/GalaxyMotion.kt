@@ -3,10 +3,14 @@ package com.blue.hush.ui
 import com.blue.hush.session.StateSample
 import kotlin.math.exp
 
-// Demo composite mapping for new samples; preserve the legacy artistic band mapping.
+// Moderate the motion without hiding score differences; preserve the legacy band mapping.
 internal fun galaxyAgitation(sample: StateSample?): Float? {
     if (sample?.algorithmVersion != null && sample.algorithmVersion > 0) {
-        return sample.calmness?.takeIf { sample.valid && it.isFinite() && it in 0.0..1.0 }?.let { (1 - it).toFloat() }
+        return sample.calmness?.takeIf { sample.valid && it.isFinite() && it in 0.0..1.0 }?.let {
+            val unrest = (1 - it).toFloat()
+            // Blend linear and quadratic response to retain visible changes near calm.
+            unrest * (0.5f + 0.5f * unrest)
+        }
     }
     if (sample?.valid != true || !sample.eegBandsAvailable) return null
     val bands = listOf(sample.alpha, sample.theta, sample.beta)
@@ -39,11 +43,12 @@ internal class GalaxyMotion(phase: Float = 0f, agitation: Float = 0f, visibility
         visibility += ((if (target == null) 0.25f else 1f) - visibility) * fade
         // Live gaps retain visual parameters and drift; recorded gaps retain the original freeze.
         if (target == null) {
-            if (continueWhenMissing) phase += dt * (0.07f + agitation * 0.16f)
+            if (continueWhenMissing) phase += dt * (0.06f + agitation * 0.17f)
             return
         }
         val duration = if (target < agitation) 4f else 2.5f
         agitation += (target - agitation) * (1f - exp(-dt / duration))
-        phase += dt * (0.07f + agitation * 0.16f)
+        // Slower settled drift, with the same maximum speed at full agitation.
+        phase += dt * (0.06f + agitation * 0.17f)
     }
 }

@@ -35,7 +35,10 @@ import com.choosemuse.libmuse.ConnectionState
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
-    companion object { private var automaticConnectionPaused = false }
+    companion object {
+        private var automaticConnectionPaused = false
+        private var bundledHistoryRestored = false
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ioExecutor = Executors.newSingleThreadExecutor()
     private lateinit var database: HushDatabase
@@ -133,6 +136,16 @@ class MainActivity : ComponentActivity() {
             ?.takeIf { it in MusicTrack.soundscapes } ?: MusicTrack.RAIN
         connectionStateUi = connectionStateUi.copy(simulationMode = savedInstanceState?.getBoolean("simulation") ?: false)
         database = HushDatabase(applicationContext)
+        // Queue before history reads; activity recreation must not undo a deletion in this process.
+        ioExecutor.execute {
+            synchronized(Companion) {
+                if (!bundledHistoryRestored) {
+                    runCatching { database.restoreBundledHistory(applicationContext) }
+                        .onSuccess { bundledHistoryRestored = true }
+                        .onFailure { android.util.Log.e("Hush", "Could not restore bundled history", it) }
+                }
+            }
+        }
         ContextCompat.registerReceiver(this, bluetoothReceiver, android.content.IntentFilter(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         removeSessionListener = SessionRuntime.subscribe { state ->
             mainHandler.post {

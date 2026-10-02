@@ -4,10 +4,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.blue.hush.processing.SessionScoreCalculator
 import com.blue.hush.session.MusicTrack
 import com.blue.hush.session.ResultLabel
 import com.blue.hush.session.SessionSummary
 import com.blue.hush.session.StateSample
+import org.json.JSONObject
 
 class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
     override fun onCreate(db: SQLiteDatabase) {
@@ -64,6 +66,55 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
             // Foreign-key enforcement was not enabled in existing databases.
             db.delete("samples", "session_id = ?", arrayOf(sessionId.toString()))
             db.delete("sessions", "id = ?", arrayOf(sessionId.toString()))
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /** Restore the two project snapshots at startup without duplicating existing history. */
+    fun restoreBundledHistory(context: Context) {
+        val source = context.assets.open("history/saved_sessions.json").bufferedReader().use { JSONObject(it.readText()) }
+        require(source.getInt("format_version") == 1) { "Unsupported bundled history format" }
+        val sessions = source.getJSONArray("sessions")
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            for (index in 0 until sessions.length()) {
+                val session = sessions.getJSONObject(index)
+                val startedAt = session.getLong("started_at")
+                val endedAt = session.getLong("ended_at")
+                // Local IDs change after deletion and restoration; original timestamps identify the snapshot.
+                val exists = db.rawQuery(
+                    "SELECT 1 FROM sessions WHERE started_at = ? AND ended_at = ? LIMIT 1",
+                    arrayOf(startedAt.toString(), endedAt.toString()),
+                ).use { it.moveToFirst() }
+                if (exists) continue
+                val values = ContentValues().apply {
+                    put("started_at", startedAt)
+                    put("ended_at", endedAt)
+                    put("planned_seconds", session.getInt("planned_seconds"))
+                    put("actual_seconds", session.getInt("actual_seconds"))
+                    put("track", session.getString("track"))
+                    put("result", session.getString("result"))
+                }
+                val id = db.insertOrThrow("sessions", null, values)
+                val samples = session.getJSONArray("samples")
+                for (sampleIndex in 0 until samples.length()) {
+                    val sample = samples.getJSONObject(sampleIndex)
+                    insertSample(db, id, StateSample(
+                        elapsedSeconds = sample.getInt("elapsed_seconds"),
+                        alpha = sample.getDoubleOrNull("alpha"),
+                        theta = sample.getDoubleOrNull("theta"),
+                        beta = sample.getDoubleOrNull("beta"),
+                        stillness = sample.getDoubleOrNull("stillness"),
+                        heartRateBpm = sample.getDoubleOrNull("heart_rate_bpm"),
+                        calmness = sample.getDoubleOrNull("calmness"),
+                        algorithmVersion = sample.getInt("algorithm_version"),
+                        valid = sample.getInt("valid") == 1,
+                    ))
+                }
+            }
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -134,6 +185,7 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                         sampleCount = countSamples(id, validOnly = false),
                         validSampleCount = countSamples(id, validOnly = true),
                         resultSampleCount = if (hasCompositeSamples(id)) countCalmnessSamples(id) else countSamples(id, validOnly = true),
+                        calm = SessionScoreCalculator.calculate(loadSamples(id)).calm,
                     ),
                 )
             }
@@ -194,6 +246,9 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
 
     private fun android.database.Cursor.getDoubleOrNull(index: Int): Double? =
         if (isNull(index)) null else getDouble(index)
+
+    private fun JSONObject.getDoubleOrNull(key: String): Double? =
+        if (isNull(key)) null else getDouble(key)
 
     private companion object {
         const val DATABASE_NAME = "hush.db"

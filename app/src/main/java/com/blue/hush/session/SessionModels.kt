@@ -52,6 +52,7 @@ data class SessionSummary(
     val sampleCount: Int,
     val validSampleCount: Int,
     val resultSampleCount: Int = validSampleCount,
+    val calm: Double? = null,
 )
 
 enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, INTERFERENCE, UNKNOWN, MISSING }

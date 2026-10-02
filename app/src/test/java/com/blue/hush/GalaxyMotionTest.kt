@@ -29,10 +29,26 @@ class GalaxyMotionTest {
 
     @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {
         val composite = sample(0.4).copy(algorithmVersion = 1, calmness = 0.8)
-        assertEquals(0.2f, galaxyAgitation(composite)!!, 0.000001f)
+        assertEquals(0.12f, galaxyAgitation(composite)!!, 0.000001f)
+        assertEquals(0.375f, galaxyAgitation(composite.copy(calmness = 0.5))!!, 0.000001f)
+        assertEquals(0f, galaxyAgitation(composite.copy(calmness = 1.0))!!, 0f)
+        assertEquals(1f, galaxyAgitation(composite.copy(calmness = 0.0))!!, 0f)
         assertNull(galaxyAgitation(composite.copy(calmness = null)))
         assertNull(galaxyAgitation(composite.copy(calmness = Double.NaN)))
         assertNull(galaxyAgitation(composite.copy(valid = false)))
+    }
+    @Test fun settledRotationIsSlowerAndPeakSpeedIsPreserved() {
+        val calm = GalaxyMotion(agitation = 0f)
+        val resting = GalaxyMotion(agitation = 0.375f)
+        val peak = GalaxyMotion(agitation = 1f)
+        repeat(60) {
+            calm.advance(1f / 60, 0f)
+            resting.advance(1f / 60, 0.375f)
+            peak.advance(1f / 60, 1f)
+        }
+        assertEquals(0.06f, calm.phase, 0.000001f)
+        assertEquals(0.12375f, resting.phase, 0.000001f)
+        assertEquals(0.23f, peak.phase, 0.000001f)
     }
     @Test fun recordedFramesAreDeterministicAndRejectMissingBands() {
         val motion = GalaxyMotion()
