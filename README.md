@@ -1,6 +1,6 @@
 # Hush
 
-Hush is an Android meditation app for Muse 2. It combines Alpha, Theta, Beta, dynamic acceleration, and PPG-derived heart rate into a gradual galaxy visualization and a Calmness trend, then saves local session summaries and replay data. The demo calibrates from 10 valid EEG seconds; heart rate joins after its own baseline is available. A bundled ten-minute simulation lets the session flow run without a headband and appears once as the oldest History entry. The simulation uses EEG and stored stillness without inventing heart rate. Calmness is an engineering heuristic, not a validated meditation-quality or medical assessment. History retains its original four relative curves and adds the saved Calmness trend.
+Hush is an Android meditation app for Muse 2. It combines Alpha, Theta, Beta and PPG-derived heart rate into a gradual galaxy visualization and a Calmness trend, then saves local session summaries and replay data. Acceleration measures body stillness independently and does not affect Calmness or scores. The demo calibrates from 10 valid EEG seconds; heart rate joins after its own baseline is available. A bundled ten-minute simulation lets the session flow run without a headband and appears once as the oldest History entry. New simulations use EEG alone without inventing heart rate; stored stillness remains available for its separate chart. Calmness is an engineering heuristic, not a validated meditation-quality or medical assessment. History retains its original four relative curves and adds the saved Calmness trend.
 
 ## Build
 

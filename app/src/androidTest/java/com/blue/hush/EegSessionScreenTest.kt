@@ -60,6 +60,9 @@ class EegSessionScreenTest {
         compose.onNodeWithText("Low signal quality").assertIsDisplayed()
         compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
+        updateState { it.copy(eegStatus = EegSignalStatus.INTERFERENCE, eegNotice = EegSignalStatus.INTERFERENCE) }
+        compose.onNodeWithText("Signal settling…").assertIsDisplayed()
+        compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         updateState { it.copy(eegStatus = EegSignalStatus.UNKNOWN, eegNotice = EegSignalStatus.UNKNOWN) }
         compose.onNodeWithText("Checking signal…").assertIsDisplayed()
         updateState { it.copy(eegStatus = EegSignalStatus.MISSING, eegNotice = EegSignalStatus.MISSING) }

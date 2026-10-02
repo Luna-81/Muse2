@@ -10,6 +10,7 @@ import kotlin.math.sqrt
 class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHING) {
     private val bands = List(3) { mutableListOf<List<Double>>() }
     private val acceptedBands = List(3) { mutableListOf<List<Double?>>() }
+    private val interferenceRejected = IntArray(4)
     private val qualityAccepted = IntArray(4)
     private val qualityRejected = IntArray(4)
     private val qualityUnknown = IntArray(4)
@@ -20,6 +21,8 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     private var lastAcceleration: Long? = null
     private var eegQuality: List<Double> = emptyList()
     private var eegQualityAt: Long? = null
+    private var eegFit: List<Double> = emptyList()
+    private var eegFitAt: Long? = null
     private var ppgGood: Boolean? = null
     private var ppgQualityAt: Long? = null
     private var heartGood: Boolean? = null
@@ -53,6 +56,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             MuseDataPacketType.THETA_RELATIVE -> acceptBand(1, values, receivedAtMillis)
             MuseDataPacketType.BETA_RELATIVE -> acceptBand(2, values, receivedAtMillis)
             MuseDataPacketType.IS_GOOD -> { eegQuality = values.take(4); eegQualityAt = receivedAtMillis }
+            MuseDataPacketType.HSI_PRECISION -> { eegFit = values.take(4); eegFitAt = receivedAtMillis }
             MuseDataPacketType.IS_PPG_GOOD -> {
                 ppgGood = values.any { it.isFinite() && it > 0 }; ppgQualityAt = receivedAtMillis
                 if (ppgGood == false) heart.reset()
@@ -99,14 +103,22 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         bands[index] += values.take(4)
         if (values.take(4).any { it.isFinite() && it in 0.0..1.0 }) receivedSensorData = true
         val fresh = eegQualityAt?.let { receivedAtMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true
+        val fitFresh = eegFitAt?.let { receivedAtMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true
         // Evaluate quality at arrival. Later flags cannot retroactively accept or erase a packet.
         val accepted = List(4) { channel ->
             val value = values.getOrNull(channel)?.takeIf { it.isFinite() && it in 0.0..1.0 }
             val quality = if (fresh) eegQuality.getOrNull(channel) else null
+            val fit = if (fitFresh) eegFit.getOrNull(channel)?.takeIf { it.isFinite() && it in 1.0..4.0 } else null
+            // Fit and artifact quality are independent: good contact cannot clean a blink.
             when {
                 value == null -> null
+                fit != null && fit > 2.0 -> { qualityRejected[channel]++; null }
                 quality == 1.0 -> { qualityAccepted[channel]++; value }
-                quality == 0.0 -> { qualityRejected[channel]++; null }
+                quality == 0.0 -> {
+                    qualityRejected[channel]++
+                    if (fit != null) interferenceRejected[channel]++
+                    null
+                }
                 else -> { qualityUnknown[channel]++; null }
             }
         }
@@ -134,6 +146,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             bands.any { it.isEmpty() } -> EegSignalStatus.MISSING
             numericChannels.isEmpty() -> EegSignalStatus.LOW_QUALITY
             qualityUnknown.any { it > 0 } -> EegSignalStatus.UNKNOWN
+            numericChannels.any { interferenceRejected[it] > 0 } -> EegSignalStatus.INTERFERENCE
             else -> EegSignalStatus.LOW_QUALITY
         }
         val measured = raw.mapIndexed { index, value ->
@@ -163,6 +176,10 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             qualityFresh = qualityFresh,
             qualityAgeMillis = eegQualityAt?.let { nowMillis - it },
             quality = eegQuality.toList(),
+            interferenceRejected = interferenceRejected.toList(),
+            fit = eegFit.toList(),
+            fitAgeMillis = eegFitAt?.let { nowMillis - it },
+            fitFresh = eegFitAt?.let { nowMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true,
             calibrationSeconds = calmness.calibrationSeconds,
             status = when {
                 !collecting -> "NOT_COLLECTING"
@@ -170,6 +187,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
                 bands.any { it.isEmpty() } -> "INCOMPLETE_BANDS"
                 numericChannels.isEmpty() -> "INVALID_BANDS"
                 eegStatus == EegSignalStatus.UNKNOWN -> "QUALITY_UNKNOWN"
+                eegStatus == EegSignalStatus.INTERFERENCE -> "INTERFERENCE"
                 !available -> "LOW_QUALITY"
                 calmness.calibrationSeconds < SignalRules.BASELINE_SECONDS -> "CALIBRATING"
                 else -> "READY"
@@ -213,6 +231,8 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         lastAcceleration = null
         eegQuality = emptyList()
         eegQualityAt = null
+        eegFit = emptyList()
+        eegFitAt = null
         ppgGood = null
         ppgQualityAt = null
         heartGood = null
@@ -228,6 +248,7 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         qualityAccepted.fill(0)
         qualityRejected.fill(0)
         qualityUnknown.fill(0)
+        interferenceRejected.fill(0)
     }
     private fun qualityAllows(value: Boolean?, timestamp: Long?, now: Long): Boolean =
         !(value == false && timestamp != null && now - timestamp in 0..SignalRules.QUALITY_TTL_MILLIS)

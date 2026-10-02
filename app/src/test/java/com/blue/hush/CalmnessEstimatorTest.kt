@@ -20,23 +20,25 @@ class CalmnessEstimatorTest {
         assertNull(estimator.process(sample(12).copy(eegBandsAvailable = false)).calmness)
     }
 
-    @Test fun lowerBetaRaisesCalmnessAndMotionHasIndependentWeight() {
+    @Test fun lowerBetaRaisesCalmnessAndStillnessDoesNotAffectFusion() {
         val estimator = CalmnessEstimator(smoothingFactor = 1.0)
         repeat(10) { estimator.process(sample(it + 1)) }
         assertTrue(estimator.process(sample(11, beta = 0.1)).calmness!! > 0.5)
         assertTrue(estimator.process(sample(12, beta = 0.4)).calmness!! < 0.5)
         assertEquals(0.5, estimator.process(sample(13)).calmness!!, 0.000001)
-        assertEquals((0.6 * 0.5 + 0.25) / 0.85, estimator.process(sample(14, stillness = 1.0)).calmness!!, 0.000001)
+        assertEquals(0.5, estimator.process(sample(14, stillness = 1.0)).calmness!!, 0.000001)
+        assertEquals(0.5, estimator.process(sample(14, stillness = 0.0)).calmness!!, 0.000001)
         assertNull(estimator.process(sample(15, stillness = 1.0).copy(beta = null)).calmness)
     }
 
     @Test fun heartJoinsOnlyAfterItsOwnBaselineAndMissingHeartIsExcluded() {
         val estimator = CalmnessEstimator(smoothingFactor = 1.0)
         repeat(10) { estimator.process(sample(it + 1, stillness = 1.0)) }
-        repeat(9) { assertEquals(0.55 / 0.85, estimator.process(sample(it + 11, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001) }
-        assertEquals(0.625, estimator.process(sample(20, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001)
-        assertEquals(0.7, estimator.process(sample(21, stillness = 1.0, bpm = 70.0)).calmness!!, 0.000001)
-        assertEquals(0.55 / 0.85, estimator.process(sample(22, stillness = 1.0)).calmness!!, 0.000001)
+        repeat(9) { assertEquals(0.5, estimator.process(sample(it + 11, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001) }
+        assertEquals(0.5, estimator.process(sample(20, stillness = 1.0, bpm = 80.0)).calmness!!, 0.000001)
+        assertEquals(0.6, estimator.process(sample(21, stillness = 1.0, bpm = 70.0)).calmness!!, 0.000001)
+        assertEquals(0.6, estimator.process(sample(21, stillness = 0.0, bpm = 70.0)).calmness!!, 0.000001)
+        assertEquals(0.5, estimator.process(sample(22, stillness = 1.0)).calmness!!, 0.000001)
     }
 
     @Test fun interruptionKeepsCompletedBaselineAndResetStartsANewSession() {

@@ -125,6 +125,7 @@ internal fun MeditationGalaxyScreen(
                         state.phase == SessionPhase.CONNECTING -> "Connecting…"
                         !state.connected -> "Reconnecting…"
                         state.eegNotice == EegSignalStatus.LOW_QUALITY -> "Low signal quality"
+                        state.eegNotice == EegSignalStatus.INTERFERENCE -> "Signal settling…"
                         state.eegNotice == EegSignalStatus.UNKNOWN -> "Checking signal…"
                         state.eegNotice == EegSignalStatus.MISSING -> "Waiting for EEG…"
                         state.calibrationSeconds < 10 -> "Calibrating… ${state.calibrationSeconds}/10"

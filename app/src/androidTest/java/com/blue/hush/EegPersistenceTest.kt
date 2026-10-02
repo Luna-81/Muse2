@@ -21,7 +21,7 @@ class EegPersistenceTest {
         MuseManagerAndroid.getInstance().setContext(InstrumentationRegistry.getInstrumentation().targetContext)
         val expected = listOf(0.1, 0.2, 0.3, 0.4)
         for (type in listOf(MuseDataPacketType.EEG, MuseDataPacketType.ALPHA_RELATIVE,
-                MuseDataPacketType.THETA_RELATIVE, MuseDataPacketType.BETA_RELATIVE)) {
+                MuseDataPacketType.THETA_RELATIVE, MuseDataPacketType.BETA_RELATIVE, MuseDataPacketType.HSI_PRECISION)) {
             val packet = MuseDataPacket.makePacket(type, 0, ArrayList(expected + listOf(0.9, 0.8)))
             val channels = listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4).map(packet::getEegChannelValue)
             assertEquals(expected, channels)
@@ -61,7 +61,7 @@ class EegPersistenceTest {
             val trustedScores = SessionScoreCalculator.calculate(samples.take(40))
             assertNotNull(trustedScores.overall)
             assertEquals(trustedScores, SessionScoreCalculator.calculate(persisted))
-            assertTrue(persisted.all { it.algorithmVersion == 2 })
+            assertTrue(persisted.all { it.algorithmVersion == 3 })
         } finally {
             database.deleteSession(id)
             database.close()

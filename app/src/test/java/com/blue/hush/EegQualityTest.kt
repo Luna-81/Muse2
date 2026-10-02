@@ -8,6 +8,93 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EegQualityTest {
+    @Test fun usableFitDoesNotLetInterferenceEnterCalibrationOrScores() {
+        for (fit in listOf(1.0, 1.5, 2.0)) {
+            val processor = SignalProcessor()
+            for (second in 1..30) {
+                val at = second * 1000L
+                processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(fit), at)
+                processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), at)
+                bands(processor, at)
+                val sample = processor.nextSample(second, at + 100)
+                assertFalse(sample.eegBandsAvailable)
+                assertNull(sample.calmness)
+                assertEquals(0, processor.calibrationSeconds)
+                assertEquals(EegSignalStatus.INTERFERENCE, processor.latestDiagnostics.eegStatus)
+                assertEquals(listOf(3, 0, 0, 0), processor.latestDiagnostics.interferenceRejected)
+            }
+        }
+    }
+
+    @Test fun cleanChannelsRemainUsableWhileInterferenceAndPoorFitAreExcluded() {
+        val processor = SignalProcessor(smoothingFactor = 1.0)
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(1.0, 2.0, 4.0), 0)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0, 0.0, 1.0), 0)
+        bands(processor, 100, listOf(0.4, 0.9, 0.9), listOf(0.3, 0.8, 0.8), listOf(0.2, 0.7, 0.7))
+        val sample = processor.nextSample(1, 1000)
+        assertEquals(0.4, sample.alpha!!, 0.000001)
+        assertEquals(0.3, sample.theta!!, 0.000001)
+        assertEquals(0.2, sample.beta!!, 0.000001)
+        assertEquals(1, processor.latestDiagnostics.usableChannels)
+        assertEquals(listOf(0, 3, 0, 0), processor.latestDiagnostics.interferenceRejected)
+        assertEquals(listOf(0, 3, 3, 0), processor.latestDiagnostics.qualityRejected)
+    }
+
+    @Test fun missingExpiredInvalidAndFutureFitCannotOverrideBadFlags() {
+        for ((fit, fitAt) in listOf(null to 0L, 1.0 to 0L, Double.NaN to 3000L,
+                0.0 to 3000L, 5.0 to 3000L, 1.0 to 4000L, 3.0 to 3000L, 4.0 to 3000L)) {
+            val processor = SignalProcessor()
+            fit?.let { processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(it), fitAt) }
+            processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 3000)
+            bands(processor, 3000)
+            assertFalse(processor.nextSample(1, 3500).eegBandsAvailable)
+            assertEquals(0, processor.latestDiagnostics.interferenceRejected.sum())
+        }
+    }
+
+    @Test fun fitCannotReplaceMissingArtifactFlagsOrMissingBands() {
+        val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(1.0), 0)
+        bands(processor, 2000)
+        assertFalse(processor.nextSample(1, 2500).eegBandsAvailable)
+        assertFalse(processor.latestDiagnostics.fitFresh)
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(1.0), 2600)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), 2600)
+        processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 2600)
+        assertFalse(processor.nextSample(2, 3000).eegBandsAvailable)
+        bands(processor, 3001, beta = listOf(Double.NaN))
+        assertNull(processor.nextSample(3, 3500).beta)
+    }
+
+    @Test fun lateFitCannotRetroactivelyAcceptPacketsAndDisconnectClearsFit() {
+        val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 0)
+        bands(processor, 100)
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(1.0), 900)
+        assertFalse(processor.nextSample(1, 1000).eegBandsAvailable)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), 1100)
+        bands(processor, 1100)
+        assertTrue(processor.nextSample(2, 1200).eegBandsAvailable)
+        processor.setCollecting(false)
+        processor.setCollecting(true)
+        bands(processor, 1300)
+        assertFalse(processor.nextSample(3, 1400).eegBandsAvailable)
+        assertTrue(processor.latestDiagnostics.fit.isEmpty())
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(1.0), 1500)
+        processor.reset()
+        bands(processor, 1600)
+        assertFalse(processor.nextSample(4, 1700).eegBandsAvailable)
+    }
+
+    @Test fun poorFitOnAllPhysicalChannelsNeverUsesAuxiliaryFit() {
+        val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.HSI_PRECISION, listOf(4.0, 4.0, 4.0, 4.0, 1.0), 0)
+        processor.accept(MuseDataPacketType.IS_GOOD, List(5) { 1.0 }, 0)
+        bands(processor, 100, List(5) { 0.4 }, List(5) { 0.3 }, List(5) { 0.2 })
+        assertFalse(processor.nextSample(1, 1000).eegBandsAvailable)
+        assertEquals(EegSignalStatus.LOW_QUALITY, processor.latestDiagnostics.eegStatus)
+    }
+
     private fun bands(processor: SignalProcessor, at: Long, alpha: List<Double> = listOf(0.4),
                       theta: List<Double> = listOf(0.3), beta: List<Double> = listOf(0.2)) {
         processor.accept(MuseDataPacketType.ALPHA_RELATIVE, alpha, at)
@@ -138,7 +225,7 @@ class EegQualityTest {
         assertNull(SessionScoreCalculator.calculate(samples).calm)
         assertEquals(10, samples.count { it.alpha != null })
         assertTrue(samples.takeLast(44).all { it.valid && it.alpha == null && it.calmness == null })
-        assertTrue(samples.all { it.algorithmVersion == 2 })
+        assertTrue(samples.all { it.algorithmVersion == 3 })
     }
 
     @Test fun pauseDisconnectAndNewSessionRejectOldPacketsAndQuality() {

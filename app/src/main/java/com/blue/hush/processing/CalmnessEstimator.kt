@@ -7,14 +7,13 @@ import kotlin.math.ln
 
 /** Demo heuristics, not a validated meditation or medical assessment. */
 internal object SignalRules {
-    const val VERSION = 2
+    const val VERSION = 3
     const val BASELINE_SECONDS = 10
     const val EPSILON = 0.000001
     const val MAD_SCALE = 1.4826
     const val EEG_MIN_SCALE = 0.15
-    const val EEG_WEIGHT = 0.60
-    const val MOTION_WEIGHT = 0.25
-    const val HEART_WEIGHT = 0.15
+    const val EEG_WEIGHT = 0.80
+    const val HEART_WEIGHT = 0.20
     const val HEART_BASELINE_RANGE = 20.0
     const val SMOOTHING = 0.2
     const val GRAVITY_SECONDS = 1.0
@@ -62,10 +61,6 @@ class CalmnessEstimator(private val smoothingFactor: Double = SignalRules.SMOOTH
         val eeg = 1.0 / (1.0 + exp(-((feature - baseline) / scale).coerceIn(-30.0, 30.0)))
         var weighted = eeg * SignalRules.EEG_WEIGHT
         var weight = SignalRules.EEG_WEIGHT
-        sample.stillness?.takeIf { it.isFinite() && it in 0.0..1.0 }?.let {
-            weighted += it * SignalRules.MOTION_WEIGHT
-            weight += SignalRules.MOTION_WEIGHT
-        }
         if (heart != null && heartBaseline.size == SignalRules.BASELINE_SECONDS) {
             val heartCalmness = (0.5 + (heartBaseline.median() - heart) / SignalRules.HEART_BASELINE_RANGE).coerceIn(0.0, 1.0)
             weighted += heartCalmness * SignalRules.HEART_WEIGHT

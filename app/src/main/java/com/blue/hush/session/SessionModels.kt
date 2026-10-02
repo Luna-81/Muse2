@@ -58,7 +58,7 @@ data class SessionSummary(
     val isBundledSimulation: Boolean get() = id == BUNDLED_SIMULATION_SESSION_ID
 }
 
-enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, UNKNOWN, MISSING }
+enum class EegSignalStatus { AVAILABLE, LOW_QUALITY, INTERFERENCE, UNKNOWN, MISSING }
 
 data class SessionState(
     val phase: SessionPhase = SessionPhase.IDLE,

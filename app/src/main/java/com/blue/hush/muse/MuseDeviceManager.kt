@@ -90,7 +90,8 @@ class MuseDeviceManager(
                         MuseDataPacketType.EEG,
                         MuseDataPacketType.ALPHA_RELATIVE,
                         MuseDataPacketType.THETA_RELATIVE,
-                        MuseDataPacketType.BETA_RELATIVE -> listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4).map(packet::getEegChannelValue)
+                        MuseDataPacketType.BETA_RELATIVE,
+                        MuseDataPacketType.HSI_PRECISION -> listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4).map(packet::getEegChannelValue)
                         MuseDataPacketType.ACCELEROMETER -> listOf(Accelerometer.X, Accelerometer.Y, Accelerometer.Z).map(packet::getAccelerometerValue)
                         MuseDataPacketType.PPG -> listOf(Ppg.IR, Ppg.RED).map(packet::getPpgChannelValue)
                         else -> packet.values().map { it.toDouble() }

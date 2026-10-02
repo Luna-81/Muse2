@@ -17,6 +17,8 @@ internal class EegNoticeTracker {
         }
         lastSecond = second
         if (status == EegSignalStatus.AVAILABLE) {
+            // Before warning, only uninterrupted loss counts toward the grace period.
+            if (notice == null) unavailableSeconds = 0
             recoverySeconds++
             if (recoverySeconds >= 2) {
                 unavailableSeconds = 0
@@ -25,8 +27,8 @@ internal class EegNoticeTracker {
         } else {
             recoverySeconds = 0
             unavailableSeconds++
-            // Keep the first sustained warning stable until recovery.
-            if (unavailableSeconds >= 20 && notice == null) notice = status
+            // A recovered fit must not keep an old contact warning during interference.
+            if (unavailableSeconds >= 20) notice = status
         }
         return notice
     }

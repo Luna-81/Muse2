@@ -94,7 +94,7 @@ class SignalProcessorTest {
             if (second < 10) assertNull(sample.calmness)
         }
         assertEquals(72.0, sample.heartRateBpm!!, 3.0)
-        assertTrue(sample.calmness!! in 0.62..0.65)
+        assertEquals(0.5, sample.calmness!!, 0.000001)
         processor.accept(MuseDataPacketType.IS_HEART_GOOD, listOf(0.0), 22001)
         assertNull(processor.nextSample(23, 22002).heartRateBpm)
         processor.setCollecting(false)
