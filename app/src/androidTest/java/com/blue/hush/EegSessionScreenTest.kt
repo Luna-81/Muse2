@@ -26,7 +26,7 @@ class EegSessionScreenTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private var state by mutableStateOf(SessionState(
         phase = SessionPhase.RUNNING, connected = true, elapsedSeconds = 1,
-        eegStatus = EegSignalStatus.AVAILABLE, calibrationSeconds = 5,
+        eegStatus = EegSignalStatus.AVAILABLE,
     ))
     private val motion = GalaxyMotion()
 
@@ -50,12 +50,12 @@ class EegSessionScreenTest {
         compose.mainClock.advanceTimeBy(32)
     }
 
-    @Test fun statusSeparatesCalibrationQualityMissingDataAndDisconnect() {
+    @Test fun statusSeparatesQualityMissingDataAndDisconnect() {
         show()
-        compose.onNodeWithText("Calibrating… 5/10").assertIsDisplayed()
+        compose.onNodeWithText("Calibrating… 5/10").assertDoesNotExist()
         updateState { it.copy(eegStatus = EegSignalStatus.LOW_QUALITY) }
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
-        compose.onNodeWithText("Calibrating… 5/10").assertIsDisplayed()
+        compose.onNodeWithText("Calibrating… 5/10").assertDoesNotExist()
         updateState { it.copy(eegNotice = EegSignalStatus.LOW_QUALITY) }
         compose.onNodeWithText("Low signal quality").assertIsDisplayed()
         compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
@@ -74,7 +74,7 @@ class EegSessionScreenTest {
     }
 
     @Test fun lowQualityKeepsAnimationMovingButDoesNotCreateCalmnessAndPauseStopsIt() {
-        state = state.copy(calibrationSeconds = 10, latestSample = StateSample(
+        state = state.copy( latestSample = StateSample(
             elapsedSeconds = 1, calmness = 0.2, valid = true, algorithmVersion = 2,
         ))
         show()

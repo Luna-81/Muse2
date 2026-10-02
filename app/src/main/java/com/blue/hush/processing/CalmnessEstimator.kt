@@ -1,17 +1,17 @@
 package com.blue.hush.processing
 
 import com.blue.hush.session.StateSample
-import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.ln
 
 /** Demo heuristics, not a validated meditation or medical assessment. */
 internal object SignalRules {
-    const val VERSION = 4
-    const val BASELINE_SECONDS = 10
+    const val VERSION = 5
     const val EPSILON = 0.000001
-    const val MAD_SCALE = 1.4826
-    const val EEG_MIN_SCALE = 0.15
+    // CogWear resting reference, subject-balanced over 10 pilot participants.
+    // Reproduce with tools/cogwear_reference.py; provenance is in docs/eeg-reference-dataset.md.
+    const val EEG_REFERENCE_BASELINE = 0.76507906870225273
+    const val EEG_REFERENCE_SCALE = 0.32801364656479376
     const val SMOOTHING = 0.2
     const val GRAVITY_SECONDS = 1.0
     const val ACCELEROMETER_HZ = 52.0
@@ -39,31 +39,19 @@ internal fun List<Double>.median(): Double {
 
 /** Shared by live processing and the known-good CSV; missing inputs never become defaults. */
 class CalmnessEstimator(private val smoothingFactor: Double = SignalRules.SMOOTHING) {
-    private val eegBaseline = mutableListOf<Double>()
     private var smoothed: Double? = null
-    val calibrationSeconds: Int get() = eegBaseline.size
 
     fun process(sample: StateSample): StateSample {
         val bands = listOf(sample.alpha, sample.theta, sample.beta)
         val eegValid = sample.valid && sample.eegBandsAvailable && bands.all { it != null && it.isFinite() && it in 0.0..1.0 } && bands.sumOf { it ?: 0.0 } > 0
         if (!eegValid) return sample.copy(calmness = null, algorithmVersion = SignalRules.VERSION)
         val feature = ln((sample.alpha!! + sample.theta!! + SignalRules.EPSILON) / (sample.beta!! + SignalRules.EPSILON))
-        if (eegBaseline.size < SignalRules.BASELINE_SECONDS) eegBaseline += feature
-        if (eegBaseline.size < SignalRules.BASELINE_SECONDS) return sample.copy(calmness = null, algorithmVersion = SignalRules.VERSION)
-        val baseline = eegBaseline.median()
-        val scale = (SignalRules.MAD_SCALE * eegBaseline.map { abs(it - baseline) }.median()).coerceAtLeast(SignalRules.EEG_MIN_SCALE)
-        val eeg = 1.0 / (1.0 + exp(-((feature - baseline) / scale).coerceIn(-30.0, 30.0)))
+        val eeg = 1.0 / (1.0 + exp(-((feature - SignalRules.EEG_REFERENCE_BASELINE) / SignalRules.EEG_REFERENCE_SCALE).coerceIn(-30.0, 30.0)))
         smoothed = smoothed?.let { it + smoothingFactor * (eeg - it) } ?: eeg
         return sample.copy(calmness = smoothed, algorithmVersion = SignalRules.VERSION)
     }
 
-    /** Keep the completed EEG baseline, but never finish calibration across a pause or disconnect. */
-    fun interrupt() {
-        if (eegBaseline.size < SignalRules.BASELINE_SECONDS) eegBaseline.clear()
-    }
-
     fun reset() {
-        eegBaseline.clear()
         smoothed = null
     }
 }

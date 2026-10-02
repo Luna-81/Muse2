@@ -36,7 +36,7 @@ class FusionDatabaseTest {
         }
     }
 
-    @Test fun newSamplesRoundTripAndCalibrationDoesNotCountAsAnAssessment() {
+    @Test fun storedSamplesRoundTripAndMissingCalmnessDoesNotCountAsAnAssessment() {
         val ctx = context
         ctx.deleteDatabase("hush.db")
         ctx.getDatabasePath("hush.db").parentFile?.mkdirs()
@@ -66,7 +66,10 @@ class FusionDatabaseTest {
             var id = 0L
             val replay = MuseReplaySource.load(ctx)
             assertTrue(MuseReplaySource.isUsable(replay))
-            assertTrue(replay.all { it.algorithmVersion == 4 && it.heartRateBpm == null })
+            assertTrue(replay.all { it.algorithmVersion == 5 && it.heartRateBpm == null })
+            assertTrue(replay.all { it.calmness != null })
+            val estimator = com.blue.hush.processing.CalmnessEstimator()
+            assertEquals(replay.map { it.calmness }, replay.map { estimator.process(it).calmness })
             HushDatabase(ctx).use { database ->
                 assertTrue(database.loadSummaries().isEmpty())
                 id = database.insertSession(1000, 600, MusicTrack.RAIN)
@@ -77,7 +80,7 @@ class FusionDatabaseTest {
                 val stored = database.loadSamples(id)
                 assertEquals(replay, stored)
                 assertEquals(listOf(id), database.loadSummaries().map { it.id })
-                assertEquals(591, database.loadSummaries().single().resultSampleCount)
+                assertEquals(600, database.loadSummaries().single().resultSampleCount)
                 val metrics = com.blue.hush.processing.SessionScoreCalculator.calculate(stored)
                 assertNotNull(metrics.calm)
                 assertNotNull(metrics.stability)

@@ -1,0 +1,141 @@
+{
+  "dataset": "CogWear 1.0.0",
+  "doi": "10.13026/5f6t-b637",
+  "algorithm_version": 5,
+  "smoothing": 0.2,
+  "epsilon": 1e-06,
+  "participants": [
+    {
+      "id": 0,
+      "file": "pilot/0/baseline/muse_eeg.csv",
+      "sha256": "4eeda080d2f1ec845833b71d6c8cdf491bbc4e4c61a19a8cd010727226b471b4",
+      "observed_seconds": 189,
+      "valid_seconds": 148,
+      "exclusions": {
+        "artifact_seconds": 41,
+        "not_worn_rows": 52,
+        "unusable_fit_channel_rows": 156
+      },
+      "feature_median": -0.013490782083178967
+    },
+    {
+      "id": 1,
+      "file": "pilot/1/baseline/muse_eeg.csv",
+      "sha256": "5ad92ab60414c460a7011686e5671b6ae4712a0efda74b52e581acd50e1a54f0",
+      "observed_seconds": 118,
+      "valid_seconds": 117,
+      "exclusions": {
+        "artifact_seconds": 1,
+        "not_worn_rows": 2
+      },
+      "feature_median": 0.9954992229726123
+    },
+    {
+      "id": 2,
+      "file": "pilot/2/baseline/muse_eeg.csv",
+      "sha256": "c2a6bba6ec7ac28512df651b9cbf69f8eb711e528e111980aa32456066f32c9e",
+      "observed_seconds": 182,
+      "valid_seconds": 130,
+      "exclusions": {
+        "artifact_seconds": 52,
+        "not_worn_rows": 61,
+        "unusable_fit_channel_rows": 26
+      },
+      "feature_median": -0.8406863219475782
+    },
+    {
+      "id": 4,
+      "file": "pilot/4/baseline/muse_eeg.csv",
+      "sha256": "1b11fe770a3690a938b0a2d67c70e1d6789b4f0449235e23f828a4ba35088ebe",
+      "observed_seconds": 184,
+      "valid_seconds": 118,
+      "exclusions": {
+        "artifact_seconds": 66,
+        "not_worn_rows": 74,
+        "unusable_fit_channel_rows": 26
+      },
+      "feature_median": 0.78858923228915
+    },
+    {
+      "id": 5,
+      "file": "pilot/5/baseline/muse_eeg.csv",
+      "sha256": "670b6416cafb71d1c87ec55e545a713e5088cfeff18e1abe8ae11326cc56cd1e",
+      "observed_seconds": 122,
+      "valid_seconds": 71,
+      "exclusions": {
+        "artifact_seconds": 51,
+        "not_worn_rows": 57
+      },
+      "feature_median": 0.18218265721961155
+    },
+    {
+      "id": 6,
+      "file": "pilot/6/baseline/muse_eeg.csv",
+      "sha256": "59d6567fc8f350c477ae47506b86f63f90fc73e292d78b30584b721f4d3006a4",
+      "observed_seconds": 182,
+      "valid_seconds": 132,
+      "exclusions": {
+        "artifact_seconds": 50,
+        "not_worn_rows": 54
+      },
+      "feature_median": 0.7623122870972456
+    },
+    {
+      "id": 7,
+      "file": "pilot/7/baseline/muse_eeg.csv",
+      "sha256": "cebfbf69f7c7022067445cfba1d780d25fc821dfa711f90cc4da4a9945038792",
+      "observed_seconds": 126,
+      "valid_seconds": 124,
+      "exclusions": {
+        "artifact_seconds": 2,
+        "not_worn_rows": 3
+      },
+      "feature_median": 1.5203030857436337
+    },
+    {
+      "id": 8,
+      "file": "pilot/8/baseline/muse_eeg.csv",
+      "sha256": "0d958f83d947691a72acea424d7e6d6a67247460fb67a2f9aeff530bd91e1ec6",
+      "observed_seconds": 184,
+      "valid_seconds": 160,
+      "exclusions": {
+        "artifact_seconds": 24,
+        "not_worn_rows": 25
+      },
+      "feature_median": 0.9735722306062409
+    },
+    {
+      "id": 9,
+      "file": "pilot/9/baseline/muse_eeg.csv",
+      "sha256": "1803c108968787263f3f3052396dde512847b7e7d851a9321e23c43ace8f0c2e",
+      "observed_seconds": 122,
+      "valid_seconds": 85,
+      "exclusions": {
+        "artifact_seconds": 37,
+        "not_worn_rows": 42
+      },
+      "feature_median": 0.7654922703018283
+    },
+    {
+      "id": 10,
+      "file": "pilot/10/baseline/muse_eeg.csv",
+      "sha256": "8b7faf6fb27c2c4d323c9861ec7bd44fd44eaf971e83ebd4e1c2363fedf98df7",
+      "observed_seconds": 126,
+      "valid_seconds": 92,
+      "exclusions": {
+        "artifact_seconds": 34,
+        "not_worn_rows": 40
+      },
+      "feature_median": 0.7646658671026771
+    }
+  ],
+  "excluded_participants": [
+    {
+      "id": 3,
+      "reason": "No published baseline EEG file"
+    }
+  ],
+  "accepted": true,
+  "baseline": 0.7650790687022527,
+  "scale": 0.32801364656479376
+}

@@ -26,3 +26,7 @@ captures/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Public EEG source downloads (reproduced by tools/cogwear_reference.py)
+/research-data/
+__pycache__/

@@ -4,6 +4,7 @@ import com.blue.hush.processing.SignalProcessor
 import com.choosemuse.libmuse.MuseDataPacketType
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,6 +12,45 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 class SignalProcessorTest {
+    @Test fun channelsHaveEqualWeightDespiteUnevenAcceptedPacketCounts() {
+        val processor = SignalProcessor(smoothingFactor = 1.0)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0, 1.0), 0)
+        for (type in listOf(MuseDataPacketType.ALPHA_RELATIVE, MuseDataPacketType.THETA_RELATIVE, MuseDataPacketType.BETA_RELATIVE)) {
+            processor.accept(type, listOf(0.2, 0.8), 100)
+            processor.accept(type, listOf(0.2, Double.NaN), 200)
+        }
+        val sample = processor.nextSample(1, 1000)
+        assertEquals(0.5, sample.alpha!!, 1e-12)
+        assertEquals(0.5, sample.theta!!, 1e-12)
+        assertEquals(0.5, sample.beta!!, 1e-12)
+        assertEquals("READY", processor.latestDiagnostics.status)
+        assertNotNull(sample.calmness)
+    }
+
+    @Test fun pauseRetainsSmoothingButRequiresFreshQualityOnResume() {
+        val processor = SignalProcessor()
+        fun accept(second: Int, beta: Double) {
+            val at = second * 1000L
+            processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), at)
+            processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), at)
+            processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), at)
+            processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(beta), at)
+        }
+        accept(1, 0.2)
+        val before = processor.nextSample(1, 1100).calmness!!
+        processor.setCollecting(false)
+        processor.setCollecting(true)
+        assertNull(processor.nextSample(2, 2100).calmness)
+        accept(3, 0.1)
+        val resumed = processor.nextSample(3, 3100)
+        val target = com.blue.hush.processing.CalmnessEstimator(smoothingFactor = 1.0).process(resumed).calmness!!
+        assertEquals(before + 0.2 * (target - before), resumed.calmness!!, 1e-12)
+        processor.reset()
+        accept(4, 0.1)
+        val fresh = processor.nextSample(4, 4100)
+        assertEquals(com.blue.hush.processing.CalmnessEstimator().process(fresh).calmness!!, fresh.calmness!!, 1e-12)
+    }
+
     @Test fun diagnosticsDistinguishMissingBandsFromQualityFilteringAndResetEachSecond() {
         val processor = SignalProcessor()
         processor.accept(MuseDataPacketType.EEG, listOf(1.0), 0)
@@ -61,7 +101,7 @@ class SignalProcessorTest {
         assertTrue(processor.nextSample(1).eegBandsAvailable)
     }
 
-    @Test fun repeatedCollectingNotificationDoesNotRestartCalibration() {
+    @Test fun repeatedCollectingNotificationKeepsFixedReferenceScores() {
         val processor = SignalProcessor()
         var sample = processor.nextSample(0, 0)
         for (second in 1..10) {
@@ -72,7 +112,6 @@ class SignalProcessorTest {
             processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2))
             sample = processor.nextSample(second)
         }
-        assertEquals(10, processor.calibrationSeconds)
         assertTrue(sample.calmness != null)
     }
 
@@ -91,18 +130,16 @@ class SignalProcessorTest {
             processor.accept(MuseDataPacketType.ACCELEROMETER, listOf(0.0, 0.0, 1.0), second * 1000L)
             sample = processor.nextSample(second, second * 1000L)
             if (second < 8) assertNull(sample.heartRateBpm)
-            if (second < 10) assertNull(sample.calmness)
+            assertNotNull(sample.calmness)
         }
         assertEquals(72.0, sample.heartRateBpm!!, 3.0)
-        assertEquals(0.5, sample.calmness!!, 0.000001)
+        assertEquals(com.blue.hush.processing.CalmnessEstimator().process(sample).calmness!!, sample.calmness!!, 0.000001)
         processor.accept(MuseDataPacketType.IS_HEART_GOOD, listOf(0.0), 22001)
         assertNull(processor.nextSample(23, 22002).heartRateBpm)
         processor.setCollecting(false)
         processor.setCollecting(true)
         assertNull(processor.nextSample(24, 24000).heartRateBpm)
-        assertEquals(10, processor.calibrationSeconds)
         processor.reset()
-        assertEquals(0, processor.calibrationSeconds)
     }
     @Test fun gravityRotationAndAlternatingAccelerationDoNotCancel() {
         val processor = SignalProcessor(smoothingFactor = 1.0)
@@ -128,7 +165,6 @@ class SignalProcessorTest {
         assertFalse(sample.eegBandsAvailable)
         assertNull(sample.alpha)
         assertNull(sample.calmness)
-        assertEquals(0, processor.calibrationSeconds)
     }
 
     @Test fun pausedCallbacksCannotLeakIntoResumeOrNewSession() {
@@ -139,7 +175,6 @@ class SignalProcessorTest {
         processor.setCollecting(true)
         assertFalse(processor.nextSample(1).valid)
         processor.reset()
-        assertEquals(0, processor.calibrationSeconds)
     }
     @Test
     fun aggregatesAndSmoothsValidSecond() {

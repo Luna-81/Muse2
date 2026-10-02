@@ -21,10 +21,10 @@ class GalaxyMotionTest {
         val pausedPhase = motion.phase
         motion.advance(0f, null, continueWhenMissing = true)
         assertEquals(pausedPhase, motion.phase, 0f)
-        val uncalibrated = GalaxyMotion()
-        uncalibrated.advance(0.05f, null, continueWhenMissing = true)
-        assertTrue(uncalibrated.phase > 0f)
-        assertEquals(0f, uncalibrated.agitation, 0f)
+        val withoutMeasurement = GalaxyMotion()
+        withoutMeasurement.advance(0.05f, null, continueWhenMissing = true)
+        assertTrue(withoutMeasurement.phase > 0f)
+        assertEquals(0f, withoutMeasurement.agitation, 0f)
     }
 
     @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {

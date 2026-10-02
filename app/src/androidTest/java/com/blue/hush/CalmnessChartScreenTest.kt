@@ -25,9 +25,9 @@ class CalmnessChartScreenTest {
     private fun sample(second: Int, value: Double?) = StateSample(second, 0.4, 0.3, 0.2, 0.9,
         valid = true, eegBandsAvailable = true, calmness = value, algorithmVersion = 1)
 
-    @Test fun liveCalibrationAndMeasuredTrendUseTheSameChart() {
+    @Test fun liveMissingDataAndFirstMeasuredSecondUseTheSameChart() {
         val state = mutableStateOf(SessionState(phase = SessionPhase.PAUSED, connected = true,
-            elapsedSeconds = 9, calibrationSeconds = 9, latestSample = sample(9, null)))
+            elapsedSeconds = 0, latestSample = null))
         compose.activity.runOnUiThread {
             compose.activity.setContent { HushTheme { MeditationGalaxyScreen(state.value, {}, {}, {}, {}) } }
         }
@@ -36,9 +36,9 @@ class CalmnessChartScreenTest {
         compose.runOnIdle { state.value = state.value.copy(phase = SessionPhase.RUNNING) }
         compose.mainClock.autoAdvance = false
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("Calibrating…").assertIsDisplayed()
-        compose.runOnIdle { state.value = state.value.copy(phase = SessionPhase.PAUSED, elapsedSeconds = 10,
-            calibrationSeconds = 10, latestSample = sample(10, 0.7), trendSamples = listOf(sample(10, 0.7))) }
+        compose.onNodeWithText("Calibrating…").assertDoesNotExist()
+        compose.runOnIdle { state.value = state.value.copy(phase = SessionPhase.PAUSED, elapsedSeconds = 1,
+            latestSample = sample(1, 0.7), trendSamples = listOf(sample(1, 0.7))) }
         compose.mainClock.advanceTimeByFrame()
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Calmness trend, latest 70 out of 100").assertIsDisplayed()
@@ -52,7 +52,8 @@ class CalmnessChartScreenTest {
         compose.activity.runOnUiThread {
             compose.activity.setContent { HushTheme { SessionDetailScreen(summary, values.value, 0f, {}, {}) } }
         }
-        compose.onNodeWithText("Calmness").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Calmness"))
+        compose.onNodeWithText("Calmness").assertIsDisplayed()
         compose.onNodeWithContentDescription("Calmness trend, latest 80 out of 100").assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Relative trends"))
         compose.onNodeWithText("Relative trends").assertIsDisplayed()

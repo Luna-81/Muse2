@@ -8,7 +8,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EegQualityTest {
-    @Test fun usableFitDoesNotLetInterferenceEnterCalibrationOrScores() {
+    @Test fun usableFitDoesNotLetInterferenceEnterScores() {
         for (fit in listOf(1.0, 1.5, 2.0)) {
             val processor = SignalProcessor()
             for (second in 1..30) {
@@ -19,7 +19,6 @@ class EegQualityTest {
                 val sample = processor.nextSample(second, at + 100)
                 assertFalse(sample.eegBandsAvailable)
                 assertNull(sample.calmness)
-                assertEquals(0, processor.calibrationSeconds)
                 assertEquals(EegSignalStatus.INTERFERENCE, processor.latestDiagnostics.eegStatus)
                 assertEquals(listOf(3, 0, 0, 0), processor.latestDiagnostics.interferenceRejected)
             }
@@ -111,7 +110,6 @@ class EegQualityTest {
         val sample = processor.nextSample(1, 1000)
         assertTrue(sample.eegBandsAvailable)
         assertEquals(0.4, sample.alpha!!, 0.000001)
-        assertEquals(1, processor.calibrationSeconds)
     }
 
     @Test fun lateGoodFlagDoesNotRetroactivelyTrustBadPackets() {
@@ -123,7 +121,7 @@ class EegQualityTest {
         assertEquals(0.4, processor.nextSample(1, 1000).alpha!!, 0.000001)
     }
 
-    @Test fun lateGoodFlagWithoutNewBandsCannotCompleteCalibration() {
+    @Test fun lateGoodFlagWithoutNewBandsCannotCreateScore() {
         val processor = SignalProcessor()
         processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 0)
         bands(processor, 100)
@@ -131,7 +129,6 @@ class EegQualityTest {
         val sample = processor.nextSample(1, 1000)
         assertNull(sample.alpha)
         assertNull(sample.calmness)
-        assertEquals(0, processor.calibrationSeconds)
         assertEquals(EegSignalStatus.LOW_QUALITY, processor.latestDiagnostics.eegStatus)
         assertEquals(listOf(3, 0, 0, 0), processor.latestDiagnostics.qualityRejected)
     }
@@ -180,7 +177,6 @@ class EegQualityTest {
         assertFalse(separate.eegBandsAvailable)
         bands(processor, 1100, listOf(0.0), listOf(0.0), listOf(0.0))
         assertNull(processor.nextSample(2, 2000).alpha)
-        assertEquals(0, processor.calibrationSeconds)
     }
 
     @Test fun numericAndTrustedChannelsAreReportedSeparately() {
@@ -195,7 +191,7 @@ class EegQualityTest {
         assertEquals(listOf(3, 0, 0, 0), processor.latestDiagnostics.qualityRejected)
     }
 
-    @Test fun poorAndMissingSecondsDoNotResetCalibrationOrEnterScores() {
+    @Test fun poorAndMissingSecondsDoNotEnterScores() {
         val processor = SignalProcessor()
         val samples = (1..10).map { second ->
             val at = second * 1000L
@@ -203,16 +199,13 @@ class EegQualityTest {
             bands(processor, at)
             processor.nextSample(second, at + 100)
         }.toMutableList()
-        assertEquals(5, processor.calibrationSeconds)
-        processor.nextSample(11, 11100)
-        assertEquals(5, processor.calibrationSeconds)
+        assertNull(processor.nextSample(11, 11100).calmness)
         for (second in 12..16) {
             val at = second * 1000L
             processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), at)
             bands(processor, at)
             samples += processor.nextSample(second, at + 100)
         }
-        assertEquals(10, processor.calibrationSeconds)
         assertNotNull(samples.last().calmness)
         for (second in 17..60) {
             val at = second * 1000L
@@ -225,7 +218,7 @@ class EegQualityTest {
         assertNull(SessionScoreCalculator.calculate(samples).calm)
         assertEquals(10, samples.count { it.alpha != null })
         assertTrue(samples.takeLast(44).all { it.valid && it.alpha == null && it.calmness == null })
-        assertTrue(samples.all { it.algorithmVersion == 4 })
+        assertTrue(samples.all { it.algorithmVersion == 5 })
     }
 
     @Test fun pauseDisconnectAndNewSessionRejectOldPacketsAndQuality() {
@@ -238,7 +231,6 @@ class EegQualityTest {
         processor.setCollecting(true)
         bands(processor, 1200)
         assertNull(processor.nextSample(2, 2000).alpha)
-        assertEquals(0, processor.calibrationSeconds)
         assertEquals(EegSignalStatus.UNKNOWN, processor.latestDiagnostics.eegStatus)
         processor.accept(MuseDataPacketType.IS_GOOD, listOf(1.0), 2100)
         bands(processor, 2200)

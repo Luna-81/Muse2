@@ -74,7 +74,6 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                             sampleCount = samples.count,
                             validSampleCount = samples.validCount,
                             calmnessSampleCount = samples.calmnessCount,
-                            calibrationSeconds = if (simulationMode) replaySamples.take(elapsedSeconds).count { it.eegBandsAvailable }.coerceAtMost(10) else processor.calibrationSeconds,
                             eegStatus = eegStatus,
                             eegNotice = eegNotice,
                             trendSamples = samples.all,

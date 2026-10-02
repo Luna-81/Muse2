@@ -63,9 +63,17 @@ class EegPersistenceTest {
             assertNotNull(trustedScores.stability)
             assertNull(trustedScores.heartRateBpm)
             assertEquals(trustedScores, SessionScoreCalculator.calculate(persisted))
-            assertTrue(persisted.all { it.algorithmVersion == 4 })
+            assertTrue(persisted.all { it.algorithmVersion == 5 })
+            val legacyId = database.insertSession(100, 600, MusicTrack.RAIN)
+            val legacy = samples.first().copy(calmness = 0.65, algorithmVersion = 4)
+            database.insertSample(legacyId, legacy)
+            database.close()
+            HushDatabase(context).use { reopened ->
+                assertEquals(5, reopened.readableDatabase.version)
+                assertEquals(listOf(legacy), reopened.loadSamples(legacyId))
+                assertEquals(persisted, reopened.loadSamples(id))
+            }
         } finally {
-            database.deleteSession(id)
             database.close()
             SQLiteDatabase.deleteDatabase(file)
         }

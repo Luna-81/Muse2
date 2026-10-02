@@ -54,7 +54,6 @@ internal class SignalDiagnosticLog(context: Context, private val sessionId: Long
             .put("hsi_precision", JSONArray(diagnostics.fit.map { if (it.isFinite()) it else JSONObject.NULL }))
             .put("fit_fresh", diagnostics.fitFresh)
             .put("fit_age_ms", diagnostics.fitAgeMillis ?: JSONObject.NULL)
-            .put("calibration_seconds", diagnostics.calibrationSeconds)
             .put("eeg_status", diagnostics.eegStatus.name)
             .put("status", diagnostics.status))
     }

@@ -71,7 +71,6 @@ data class SessionState(
     val volume: Float = 0.7f,
     val result: ResultLabel? = null,
     val message: String? = null,
-    val calibrationSeconds: Int = 0,
     val eegStatus: EegSignalStatus = EegSignalStatus.UNKNOWN,
     val eegNotice: EegSignalStatus? = null,
     val calmnessSampleCount: Int = 0,

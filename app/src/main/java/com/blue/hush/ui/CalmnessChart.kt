@@ -45,7 +45,7 @@ internal fun DrawScope.drawChartBridge(from: Offset, to: Offset, color: Color, w
 
 /** Uses recorded values; visually bridges gaps without adding statistical samples. */
 @Composable
-internal fun CalmnessChart(samples: List<StateSample>, elapsedSeconds: Int, plotHeight: Dp = 96.dp, calibrating: Boolean = false) {
+internal fun CalmnessChart(samples: List<StateSample>, elapsedSeconds: Int, plotHeight: Dp = 96.dp) {
     val latest = remember(samples) { samples.lastOrNull { it.chartCalmness() != null }?.chartCalmness() }
     val description = if (latest == null) "Calmness trend, no data" else "Calmness trend, latest ${String.format(Locale.US, "%.0f", latest * 100)} out of 100"
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
@@ -100,7 +100,7 @@ internal fun CalmnessChart(samples: List<StateSample>, elapsedSeconds: Int, plot
                         lastTrustedPoint?.let { drawChartBridge(it, Offset(inset + plotWidth, it.y), HushColors.Lavender, 2.dp.toPx()) }
                     }
                 }
-                if (latest == null && !calibrating) Text("No calmness data", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
+                if (latest == null) Text("No calmness data", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

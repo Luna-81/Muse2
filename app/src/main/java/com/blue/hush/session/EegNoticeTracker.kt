@@ -1,6 +1,6 @@
 package com.blue.hush.session
 
-/** Presentation grace only; never changes sample acceptance or calibration. */
+/** Presentation grace only; never changes sample acceptance or scoring. */
 internal class EegNoticeTracker {
     private var lastSecond: Int? = null
     private var unavailableSeconds = 0

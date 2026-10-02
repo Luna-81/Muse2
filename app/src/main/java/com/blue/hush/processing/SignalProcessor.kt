@@ -37,9 +37,6 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     private var smoothedStillness: Double? = null
 
     @get:Synchronized
-    val calibrationSeconds: Int get() = calmness.calibrationSeconds
-
-    @get:Synchronized
     val latestDiagnostics: SignalDiagnostics get() = diagnostics
 
     @Synchronized
@@ -135,8 +132,9 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             acceptedBands.all { packets -> packets.any { it[channel] != null } }
         }
         val aggregated = acceptedBands.map { packets ->
-            val values = packets.flatMap { packet -> channels.mapNotNull { packet[it] } }
-            values.takeIf { it.isNotEmpty() }?.average()
+            // Equal channel weights match the offline resting reference extraction.
+            channels.map { channel -> packets.mapNotNull { it[channel] }.average() }
+                .takeIf { it.isNotEmpty() }?.average()
         }
         // Persist only complete trusted bands; partial rows must never become EEG measurements.
         val available = aggregated.all { it != null } && aggregated.sumOf { it ?: 0.0 } > 0
@@ -180,7 +178,6 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             fit = eegFit.toList(),
             fitAgeMillis = eegFitAt?.let { nowMillis - it },
             fitFresh = eegFitAt?.let { nowMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true,
-            calibrationSeconds = calmness.calibrationSeconds,
             status = when {
                 !collecting -> "NOT_COLLECTING"
                 bands.all { it.isEmpty() } -> if (rawEegPackets > 0) "EEG_WITHOUT_BANDS" else "NO_EEG_PACKETS"
@@ -189,7 +186,6 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
                 eegStatus == EegSignalStatus.UNKNOWN -> "QUALITY_UNKNOWN"
                 eegStatus == EegSignalStatus.INTERFERENCE -> "INTERFERENCE"
                 !available -> "LOW_QUALITY"
-                calmness.calibrationSeconds < SignalRules.BASELINE_SECONDS -> "CALIBRATING"
                 else -> "READY"
             },
             eegStatus = eegStatus,
@@ -208,7 +204,6 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         if (collecting == enabled) return
         collecting = enabled
         clearWindows()
-        calmness.interrupt()
     }
 
     @Synchronized

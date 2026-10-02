@@ -27,7 +27,10 @@ class SimulationFlowTest {
             compose.onNodeWithText("Start meditation").performScrollTo().performClick()
             // The live frame loop intentionally never idles; advance the render clock explicitly.
             compose.waitUntil(10000) { SessionRuntime.current.elapsedSeconds >= 3 }
+            org.junit.Assert.assertNotNull(SessionRuntime.current.latestSample?.calmness)
+            org.junit.Assert.assertEquals(5, SessionRuntime.current.latestSample?.algorithmVersion)
             compose.mainClock.advanceTimeByFrame()
+            compose.onAllNodes(hasText("Calibrating", substring = true)).assertCountEquals(0)
             compose.onNodeWithContentDescription("Pause").performClick()
             compose.waitUntil(5000) { SessionRuntime.current.phase == SessionPhase.PAUSED }
             compose.mainClock.autoAdvance = true

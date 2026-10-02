@@ -21,7 +21,6 @@ data class SignalDiagnostics(
     val fit: List<Double> = emptyList(),
     val fitAgeMillis: Long? = null,
     val fitFresh: Boolean = false,
-    val calibrationSeconds: Int = 0,
     val status: String = "NOT_COLLECTING",
     val eegStatus: EegSignalStatus = EegSignalStatus.UNKNOWN,
 )

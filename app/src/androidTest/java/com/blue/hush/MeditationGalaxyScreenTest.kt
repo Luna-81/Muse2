@@ -29,7 +29,7 @@ class MeditationGalaxyScreenTest {
     @Test fun controlsAndMissingSignalRemainUsable() {
         val state = mutableStateOf(SessionState(
             phase = SessionPhase.RUNNING, connected = true, elapsedSeconds = 65,
-            calibrationSeconds = 10,
+
             latestSample = StateSample(65, 0.45, 0.4, 0.15, valid = true, eegBandsAvailable = true),
         ))
         var finished = 0

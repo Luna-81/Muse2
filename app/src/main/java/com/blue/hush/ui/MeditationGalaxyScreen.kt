@@ -128,7 +128,6 @@ internal fun MeditationGalaxyScreen(
                         state.eegNotice == EegSignalStatus.INTERFERENCE -> "Signal settling…"
                         state.eegNotice == EegSignalStatus.UNKNOWN -> "Checking signal…"
                         state.eegNotice == EegSignalStatus.MISSING -> "Waiting for EEG…"
-                        state.calibrationSeconds < 10 -> "Calibrating… ${state.calibrationSeconds}/10"
                         else -> null
                     }
                     status?.let { Text(it, color = HushColors.Muted, style = MaterialTheme.typography.labelMedium) }
@@ -163,7 +162,7 @@ internal fun MeditationGalaxyScreen(
                     .verticalScroll(rememberScrollState()).padding(horizontal = HushSpace.xl, vertical = HushSpace.md),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.sm), horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                CalmnessChart(state.trendSamples, state.elapsedSeconds, calibrating = state.calibrationSeconds < 10)
+                CalmnessChart(state.trendSamples, state.elapsedSeconds)
                 Text(formatDuration(state.plannedSeconds - state.elapsedSeconds), style = MaterialTheme.typography.displayLarge, color = HushColors.Text)
                 Text("Time remaining", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted)
                 if (volumeExpanded) {
