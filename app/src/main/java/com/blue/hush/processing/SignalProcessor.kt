@@ -21,15 +21,28 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     private var heartQualityAt: Long? = null
     private var receivedSensorData = false
     private var collecting = true
+    private var rawEegPackets = 0
+    private var accelerationPackets = 0
+    private var ppgPackets = 0
+    private var diagnostics = SignalDiagnostics()
     private val smoothedBands = arrayOfNulls<Double>(3)
     private var smoothedStillness: Double? = null
 
     @get:Synchronized
     val calibrationSeconds: Int get() = calmness.calibrationSeconds
 
+    @get:Synchronized
+    val latestDiagnostics: SignalDiagnostics get() = diagnostics
+
     @Synchronized
     fun accept(type: MuseDataPacketType, values: List<Double>, receivedAtMillis: Long = monotonicMillis()) {
         if (!collecting || values.isEmpty()) return
+        when (type) {
+            MuseDataPacketType.EEG -> rawEegPackets++
+            MuseDataPacketType.ACCELEROMETER -> accelerationPackets++
+            MuseDataPacketType.PPG -> ppgPackets++
+            else -> Unit
+        }
         when (type) {
             MuseDataPacketType.ALPHA_RELATIVE -> acceptBand(0, values)
             MuseDataPacketType.THETA_RELATIVE -> acceptBand(1, values)
@@ -85,9 +98,11 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     @Synchronized
     fun nextSample(elapsedSeconds: Int, nowMillis: Long = monotonicMillis()): StateSample {
         val qualityFresh = eegQualityAt?.let { nowMillis - it in 0..SignalRules.QUALITY_TTL_MILLIS } == true
-        val channels = (0 until (bands.flatMap { it }.maxOfOrNull { it.size } ?: 0)).filter { channel ->
-            (!qualityFresh || eegQuality.getOrNull(channel)?.let { it.isFinite() && it > 0 } != false) &&
-                bands.all { packets -> packets.any { it.getOrNull(channel)?.let { value -> value.isFinite() && value in 0.0..1.0 } == true } }
+        val numericChannels = (0 until (bands.flatMap { it }.maxOfOrNull { it.size } ?: 0)).filter { channel ->
+            bands.all { packets -> packets.any { it.getOrNull(channel)?.let { value -> value.isFinite() && value in 0.0..1.0 } == true } }
+        }
+        val channels = numericChannels.filter { channel ->
+            !qualityFresh || eegQuality.getOrNull(channel)?.let { it.isFinite() && it > 0 } != false
         }
         val raw = bands.map { packets ->
             val values = packets.flatMap { packet -> packet.mapIndexedNotNull { channel, value ->
@@ -110,6 +125,27 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
             valid = receivedSensorData,
             eegBandsAvailable = channels.isNotEmpty() && raw.all { it != null }, heartRateBpm = bpm,
         ))
+        diagnostics = SignalDiagnostics(
+            rawEegPackets = rawEegPackets,
+            bandPackets = bands.map { it.size },
+            accelerationPackets = accelerationPackets,
+            ppgPackets = ppgPackets,
+            numericChannels = numericChannels.size,
+            usableChannels = channels.size,
+            qualityFresh = qualityFresh,
+            quality = eegQuality.toList(),
+            calibrationSeconds = calmness.calibrationSeconds,
+            status = when {
+                !collecting -> "NOT_COLLECTING"
+                bands.all { it.isEmpty() } -> if (rawEegPackets > 0) "EEG_WITHOUT_BANDS" else "NO_EEG_PACKETS"
+                bands.any { it.isEmpty() } -> "INCOMPLETE_BANDS"
+                numericChannels.isEmpty() -> "INVALID_BANDS"
+                channels.isEmpty() -> "CONTACT_REJECTED"
+                calmness.calibrationSeconds < SignalRules.BASELINE_SECONDS -> "CALIBRATING"
+                else -> "READY"
+            },
+        )
+        clearPacketCounts()
         bands.forEach { it.clear() }
         motionEnergy.clear()
         receivedSensorData = false
@@ -131,9 +167,11 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
         calmness.reset()
         smoothedBands.fill(null)
         smoothedStillness = null
+        diagnostics = SignalDiagnostics()
     }
 
     private fun clearWindows() {
+        clearPacketCounts()
         bands.forEach { it.clear() }
         motionEnergy.clear()
         receivedSensorData = false
@@ -149,6 +187,12 @@ class SignalProcessor(private val smoothingFactor: Double = SignalRules.SMOOTHIN
     }
 
     private fun smooth(previous: Double?, current: Double): Double = previous?.let { it + smoothingFactor * (current - it) } ?: current
+
+    private fun clearPacketCounts() {
+        rawEegPackets = 0
+        accelerationPackets = 0
+        ppgPackets = 0
+    }
     private fun qualityAllows(value: Boolean?, timestamp: Long?, now: Long): Boolean =
         !(value == false && timestamp != null && now - timestamp in 0..SignalRules.QUALITY_TTL_MILLIS)
 

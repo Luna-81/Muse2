@@ -34,6 +34,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private val handler = Handler(Looper.getMainLooper())
     private val clock = SessionClock()
     private val processor = SignalProcessor()
+    private var diagnosticLog: SignalDiagnosticLog? = null
     private val samples = SessionSamples()
     private lateinit var database: HushDatabase
     private var museManager: MuseDeviceManager? = null
@@ -55,6 +56,8 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
                 val elapsedSeconds = (clock.elapsedMillis(SystemClock.elapsedRealtime()) / 1_000L).toInt()
                 if (elapsedSeconds > samples.lastSecond) {
                     val sample = if (simulationMode) replaySampleAt(elapsedSeconds) else processor.nextSample(elapsedSeconds, SystemClock.elapsedRealtime())
+                    diagnosticLog?.sample(elapsedSeconds, currentState.connected,
+                        elapsedSeconds - samples.lastSecond - 1, processor.latestDiagnostics)
                     val newSamples = samples.record(sample)
                     sessionId?.let { id -> newSamples.forEach { database.insertSample(id, it) } }
                     publish(
@@ -113,6 +116,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        diagnosticLog?.event("destroy")
         handler.removeCallbacksAndMessages(null)
         audioEngine?.stop()
         audioEngine = null
@@ -123,6 +127,10 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     }
 
     override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {
+        if (Looper.myLooper() != handler.looper) {
+            handler.post { onDevicesChanged(devices) }
+            return
+        }
         // attach() restores snapshots before returning the shared adapter.
         if (museManager == null) return
         if (currentState.phase != SessionPhase.RUNNING && currentState.phase != SessionPhase.PAUSED) return
@@ -138,7 +146,12 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
         previous: ConnectionState,
         current: ConnectionState,
     ) {
+        if (Looper.myLooper() != handler.looper) {
+            handler.post { onConnectionStateChanged(device, previous, current) }
+            return
+        }
         if (currentState.phase == SessionPhase.FINISHED || sessionId == null) return
+        diagnosticLog?.event("connection", "$previous -> $current")
         when (current) {
             ConnectionState.CONNECTED -> {
                 processor.setCollecting(currentState.phase == SessionPhase.RUNNING)
@@ -188,6 +201,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
             ?: MusicTrack.RAIN
         currentVolume = intent.getFloatExtra(EXTRA_VOLUME, 0.7f).coerceIn(0f, 1f)
         sessionId = database.insertSession(System.currentTimeMillis(), plannedSeconds, selectedTrack)
+        diagnosticLog = if (simulationMode) null else SignalDiagnosticLog(applicationContext, sessionId!!)
         samples.clear()
         processor.reset()
         processor.setCollecting(false)
@@ -221,6 +235,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private fun pauseSession() {
         if (currentState.phase != SessionPhase.RUNNING) return
         clock.pause(SystemClock.elapsedRealtime())
+        diagnosticLog?.event("pause")
         processor.setCollecting(false)
         audioEngine?.pause()
         handler.removeCallbacks(tick)
@@ -231,6 +246,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
     private fun resumeSession() {
         if (currentState.phase != SessionPhase.PAUSED) return
         clock.resume(SystemClock.elapsedRealtime())
+        diagnosticLog?.event("resume")
         processor.setCollecting(currentState.connected)
         audioEngine?.resume()
         publish(currentState.copy(phase = SessionPhase.RUNNING, message = null))
@@ -241,6 +257,7 @@ class MeditationService : Service(), MuseDeviceManager.Listener {
 
     private fun finishSession() {
         val id = sessionId ?: return
+        diagnosticLog?.event("finish")
         processor.setCollecting(false)
         val elapsedSeconds = (clock.elapsedMillis(SystemClock.elapsedRealtime()) / 1_000L).toInt()
         val completedSamples = samples.all

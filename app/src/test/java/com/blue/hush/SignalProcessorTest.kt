@@ -11,6 +11,54 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 class SignalProcessorTest {
+    @Test fun diagnosticsDistinguishMissingBandsFromContactFilteringAndResetEachSecond() {
+        val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.EEG, listOf(1.0), 0)
+        processor.accept(MuseDataPacketType.ACCELEROMETER, listOf(0.0, 0.0, 1.0), 0)
+        processor.nextSample(1, 1000)
+        assertEquals("EEG_WITHOUT_BANDS", processor.latestDiagnostics.status)
+        assertEquals(1, processor.latestDiagnostics.rawEegPackets)
+        assertEquals(1, processor.latestDiagnostics.accelerationPackets)
+
+        processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 1100)
+        processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), 1100)
+        processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), 1100)
+        processor.accept(MuseDataPacketType.IS_GOOD, listOf(0.0), 1100)
+        val rejected = processor.nextSample(2, 2000)
+        assertNull(rejected.calmness)
+        assertEquals("CONTACT_REJECTED", processor.latestDiagnostics.status)
+        assertEquals(listOf(1, 1, 1), processor.latestDiagnostics.bandPackets)
+        assertEquals(1, processor.latestDiagnostics.numericChannels)
+        assertEquals(0, processor.latestDiagnostics.usableChannels)
+        assertEquals(0, processor.latestDiagnostics.rawEegPackets)
+
+        processor.nextSample(3, 3000)
+        assertEquals("NO_EEG_PACKETS", processor.latestDiagnostics.status)
+        assertEquals(listOf(0, 0, 0), processor.latestDiagnostics.bandPackets)
+
+        // A stale quality flag must not turn a received window into contact rejection.
+        processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4), 3500)
+        processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3), 3500)
+        processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2), 3500)
+        assertTrue(processor.nextSample(4, 4000).eegBandsAvailable)
+        assertFalse(processor.latestDiagnostics.qualityFresh)
+        assertEquals("CALIBRATING", processor.latestDiagnostics.status)
+        processor.setCollecting(false)
+        processor.accept(MuseDataPacketType.EEG, listOf(1.0), 4500)
+        processor.nextSample(5, 5000)
+        assertEquals("NOT_COLLECTING", processor.latestDiagnostics.status)
+        assertEquals(0, processor.latestDiagnostics.rawEegPackets)
+    }
+
+    @Test fun repeatedCollectingNotificationKeepsTheCurrentPacketWindow() {
+        val processor = SignalProcessor()
+        processor.accept(MuseDataPacketType.ALPHA_RELATIVE, listOf(0.4))
+        processor.setCollecting(true)
+        processor.accept(MuseDataPacketType.THETA_RELATIVE, listOf(0.3))
+        processor.accept(MuseDataPacketType.BETA_RELATIVE, listOf(0.2))
+        assertTrue(processor.nextSample(1).eegBandsAvailable)
+    }
+
     @Test fun repeatedCollectingNotificationDoesNotRestartCalibration() {
         val processor = SignalProcessor()
         var sample = processor.nextSample(0, 0)
