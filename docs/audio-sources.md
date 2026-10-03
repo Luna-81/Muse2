@@ -26,7 +26,7 @@ A 40 Hz high-pass filter reduces rumble. Before its crossfade, Fireplace also us
 
 ## Playback and compatibility
 
-`AmbientAudioEngine` uses Android `MediaPlayer` to prepare asynchronously and loop the packaged resource. The existing service remains the owner of session audio; the activity owns sheet previews. Each owner releases its player on stop. New sessions select Rain, Ocean, or Fireplace; historical `MIST` and `TIDE` rows retain their old names without a database migration. Legacy playback commands map to Rain and Ocean.
+`AmbientAudioEngine` uses Android `MediaPlayer` to prepare asynchronously and loop the packaged resource. The existing service remains the owner of session audio; the activity owns sheet previews. Each owner releases its player on stop. Sessions and playback commands support only Rain, Ocean, and Fireplace.
 
 ## Validation
 

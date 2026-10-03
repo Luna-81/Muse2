@@ -41,7 +41,6 @@ class ReplayChartModelTest {
         assertNull(ReplayMetric.CALMNESS.value(sample))
         assertEquals(0.9, ReplayMetric.STABILITY.value(sample)!!, 0.0)
         assertEquals(80.0, ReplayMetric.HEART_RATE.value(sample)!!, 0.0)
-        assertEquals(0.4, ReplayMetric.ALPHA.value(sample.copy(algorithmVersion = 0))!!, 0.0)
         ReplayMetric.entries.forEach { assertNull(it.value(sample.copy(valid = false))) }
     }
 

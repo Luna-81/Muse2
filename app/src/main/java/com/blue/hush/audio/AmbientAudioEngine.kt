@@ -50,8 +50,8 @@ class AmbientAudioEngine(context: Context) {
                     true
                 }
                 val resource = when (track) {
-                    MusicTrack.RAIN, MusicTrack.MIST -> R.raw.rain
-                    MusicTrack.OCEAN, MusicTrack.TIDE -> R.raw.ocean
+                    MusicTrack.RAIN -> R.raw.rain
+                    MusicTrack.OCEAN -> R.raw.ocean
                     MusicTrack.FIREPLACE -> R.raw.fireplace
                 }
                 resources.openRawResourceFd(resource).use { asset ->

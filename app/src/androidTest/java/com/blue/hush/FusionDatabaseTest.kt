@@ -10,32 +10,6 @@ import org.junit.Test
 class FusionDatabaseTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext.createDeviceProtectedStorageContext()
 
-    @Test fun versionsOneTwoAndThreeUpgradeToEmptyHistory() {
-        for (version in 1..3) {
-            val ctx = context
-            ctx.deleteDatabase("hush.db")
-            ctx.getDatabasePath("hush.db").parentFile?.mkdirs()
-            val oldSample = StateSample(1, 0.4, 0.3, 0.2, 0.9, valid = true)
-            var id = 0L
-            try {
-                HushDatabase(ctx).use { database ->
-                    id = database.insertSession(1000, 600, MusicTrack.MIST)
-                    database.insertSample(id, oldSample)
-                    database.finishSession(id, 2000, 1, ResultLabel.STEADY)
-                    if (version == 2) database.writableDatabase.execSQL("CREATE TABLE imported_sessions (session_id INTEGER PRIMARY KEY)")
-                    recreateLegacySampleSchema(database.writableDatabase, version)
-                }
-                HushDatabase(ctx).use { database ->
-                    assertEquals(5, database.readableDatabase.version)
-                    assertTrue(database.loadSamples(id).isEmpty())
-                    assertTrue(database.loadSummaries().isEmpty())
-                    database.deleteSession(id)
-                    assertTrue(database.loadSamples(id).isEmpty())
-                }
-            } finally { ctx.deleteDatabase("hush.db") }
-        }
-    }
-
     @Test fun storedSamplesRoundTripAndMissingCalmnessDoesNotCountAsAnAssessment() {
         val ctx = context
         ctx.deleteDatabase("hush.db")
@@ -44,10 +18,10 @@ class FusionDatabaseTest {
         try {
             var id = 0L
             HushDatabase(ctx).use { database ->
-                id = database.insertSession(1000, 600, MusicTrack.TIDE)
+                id = database.insertSession(1000, 600, MusicTrack.OCEAN)
                 database.insertSample(id, measured.copy(elapsedSeconds = 1, calmness = null))
                 database.insertSample(id, measured)
-                database.insertSample(id, StateSample(3, algorithmVersion = 4))
+                database.insertSample(id, StateSample(3, algorithmVersion = 5))
                 database.finishSession(id, 4000, 3, ResultLabel.STEADY)
             }
             HushDatabase(ctx).use { database ->

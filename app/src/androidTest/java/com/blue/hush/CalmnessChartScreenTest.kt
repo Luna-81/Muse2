@@ -16,10 +16,6 @@ import com.blue.hush.ui.ParticlePanel
 import com.blue.hush.ui.GalaxyMotion
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushTheme
-import com.blue.hush.replay.ReplayCursor
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -29,7 +25,7 @@ import java.io.File
 class CalmnessChartScreenTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private fun sample(second: Int, value: Double?) = StateSample(second, 0.4, 0.3, 0.2, 0.9,
-        valid = true, eegBandsAvailable = true, calmness = value, algorithmVersion = 1)
+        valid = true, eegBandsAvailable = true, calmness = value, algorithmVersion = 5)
 
     @Test fun recordedGapKeepsRotatingWithoutAnOverlay() {
         compose.mainClock.autoAdvance = false
@@ -52,36 +48,13 @@ class CalmnessChartScreenTest {
         compose.onNodeWithText("Data gap").assertDoesNotExist()
     }
 
-    @Test fun replayChartSupportsTappingDraggingAndAccessibleSeekingThroughGaps() {
-        val values = (1..100).map { sample(it, if (it == 50) null else 0.6) }
-        val cursor = ReplayCursor(values)
-        val progress = mutableStateOf(0f)
-        compose.activity.runOnUiThread {
-            compose.activity.setContent { HushTheme {
-                CalmnessChart(values, 100, replaySecond = cursor.sampleAt(progress.value)?.elapsedSeconds,
-                    onReplaySecondSelected = { progress.value = cursor.progressAtSecond(it) })
-            } }
-        }
-        val chart = compose.onNodeWithContentDescription("Session replay")
-        chart.performTouchInput { click(Offset(width * 0.75f, height / 2f)) }
-        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds in 73..77) }
-        chart.performTouchInput { swipe(Offset(width * 0.75f, height / 2f), Offset(width * 0.25f, height / 2f), 500) }
-        compose.runOnIdle { assertTrue(cursor.sampleAt(progress.value)!!.elapsedSeconds in 23..27) }
-        chart.performSemanticsAction(SemanticsActions.SetProgress) { it(50f) }
-        chart.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "00:50"))
-        compose.runOnIdle { assertNull(cursor.sampleAt(progress.value)!!.calmness) }
-        chart.performSemanticsAction(SemanticsActions.SetProgress) { it(100f) }
-        chart.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "01:40"))
-        saveScreenshot("calmness-replay.png")
-    }
-
     @Test fun liveMissingDataAndFirstMeasuredSecondUseTheSameChart() {
         val state = mutableStateOf(SessionState(phase = SessionPhase.PAUSED, connected = true,
             elapsedSeconds = 0, latestSample = null))
         compose.activity.runOnUiThread {
             compose.activity.setContent { HushTheme { MeditationGalaxyScreen(state.value, {}, {}, {}, {}) } }
         }
-        compose.onNodeWithText("Calmness").assertIsDisplayed()
+        compose.onNodeWithText("Calmness").assertDoesNotExist()
         compose.onNodeWithContentDescription("Calmness trend, no data").assertIsDisplayed()
         compose.runOnIdle { state.value = state.value.copy(phase = SessionPhase.RUNNING) }
         compose.mainClock.autoAdvance = false
@@ -96,10 +69,10 @@ class CalmnessChartScreenTest {
         saveScreenshot("calmness-live.png")
     }
 
-    @Test fun historyUsesCombinedReplayAndPreservesLegacyMeasurements() {
+    @Test fun historyUsesCombinedReplayAndKeepsUnavailableCalmnessMissing() {
         compose.mainClock.autoAdvance = false
         val values = mutableStateOf(listOf(sample(10, 0.7), sample(11, 0.8)))
-        val summary = SessionSummary(1, 0, 11000, 600, 11, MusicTrack.MIST, ResultLabel.STEADY, 2, 2)
+        val summary = SessionSummary(1, 0, 11000, 600, 11, MusicTrack.RAIN, ResultLabel.STEADY, 2, 2)
         compose.activity.runOnUiThread {
             compose.activity.setContent { HushTheme { SessionDetailScreen(summary, values.value, 0f, {}, {}) } }
         }
@@ -110,7 +83,7 @@ class CalmnessChartScreenTest {
         compose.onNodeWithContentDescription("Session replay").assertExists()
         val plotWidth = compose.onNodeWithContentDescription("Session replay").fetchSemanticsNode().boundsInRoot.width
         assertTrue(plotWidth > compose.onRoot().fetchSemanticsNode().boundsInRoot.width * 0.8f)
-        compose.runOnIdle { values.value = values.value.map { it.copy(calmness = null, algorithmVersion = 0) } }
+        compose.runOnIdle { values.value = values.value.map { it.copy(calmness = null) } }
         compose.mainClock.advanceTimeBy(32)
         compose.onNodeWithText("Calmness —").assertDoesNotExist()
         compose.onNodeWithText(summary.result.description).assertDoesNotExist()

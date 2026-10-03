@@ -242,33 +242,9 @@ internal fun ReplayChart(
                     }
                     clipRect(left = inset, top = plotTop, right = inset + width, bottom = plotTop + height) {
                         metrics.forEach { metric ->
-                            var path: Path? = null
-                            var previous: Offset? = null
-                            var previousSecond: Int? = null
-                            var trusted: Offset? = null
-                            var trustedSecond: Int? = null
-                            var count = 0
-                            fun flush() {
-                                if (count == 1) previous?.let { drawCircle(metric.color, 2.dp.toPx(), it) }
-                                else path?.let { drawPath(it, metric.color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)) }
-                                path = null; previous = null; previousSecond = null; count = 0
-                            }
-                            samples.forEach { sample ->
-                                val value = metric.value(sample)
-                                if (value == null) { flush(); return@forEach }
-                                if (previousSecond != null && sample.elapsedSeconds != previousSecond!! + 1) flush()
-                                val point = Offset(x(sample.elapsedSeconds), y(metric.level(value).toFloat()))
-                                if (trustedSecond != null && sample.elapsedSeconds > trustedSecond!! + 1) {
-                                    trusted?.let { drawChartBridge(it, point, metric.color, 2.dp.toPx()) }
-                                }
-                                if (path == null) path = Path().apply { moveTo(point.x, point.y) }
-                                else previous?.let { path?.smoothLineTo(it, point) }
-                                previous = point; previousSecond = sample.elapsedSeconds; count++
-                                trusted = point; trustedSecond = sample.elapsedSeconds
-                            }
-                            flush()
-                            if (trustedSecond != null && trustedSecond!! < elapsedSeconds) {
-                                trusted?.let { drawChartBridge(it, Offset(x(elapsedSeconds), it.y), metric.color, 2.dp.toPx()) }
+                            drawSampleCurve(samples, elapsedSeconds, metric.color,
+                                levelAt = { metric.value(it)?.let(metric::level) }) { second, level ->
+                                Offset(x(second), y(level.toFloat()))
                             }
                         }
                     }

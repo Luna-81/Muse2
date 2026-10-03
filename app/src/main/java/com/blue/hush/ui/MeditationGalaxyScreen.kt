@@ -121,7 +121,6 @@ internal fun MeditationGalaxyScreen(
                     )
                     val status = when {
                         paused -> "Paused"
-                        state.phase == SessionPhase.CONNECTING -> "Connecting…"
                         !state.connected -> "Reconnecting…"
                         else -> null
                     }
@@ -159,7 +158,7 @@ internal fun MeditationGalaxyScreen(
                     }
                 }
                 TextButton(onClick = { confirmFinish = true }) { Text("Finish") }
-                CalmnessChart(state.trendSamples, state.elapsedSeconds, plotHeight = 64.dp, showAxes = false)
+                CalmnessChart(state.trendSamples, state.elapsedSeconds)
             }
     }
     if (musicSheet) SoundscapeSheet(state.track, onTrackSelected, onDismiss = { musicSheet = false },

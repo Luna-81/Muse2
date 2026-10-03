@@ -6,7 +6,7 @@ Algorithm version 5 maps the typical CogWear resting reference to 50, using base
 
 The bundled ten-minute simulation exercises timing, storage, summaries, and replay without a headband or Bluetooth permission. Loading it does not create a History entry; running a simulation saves an ordinary session. It replays the second-earliest device recording from `app/src/main/assets/history/second_earliest_session.json`, retaining measured heart rate, Calmness, stillness, and signal gaps. The two earliest original sessions are bundled as separate JSON files and restored if missing on a cold app restart; ordinary simulated runs are not restored after deletion.
 
-**History reset:** upgrading a database from version 1-4 to version 5 permanently deletes all existing sessions and samples, including unfinished sessions and the former `Saved simulation` entry. This happens once during the transactional upgrade. Subsequent launches preserve new history; ordinary simulation runs are not automatically imported or restored; the two explicitly bundled original snapshots are restored separately at startup. Connection preferences and other settings are unchanged.
+**Storage support:** only database schema version 5 and the current Rain, Ocean, and Fireplace track names are supported. Unsupported schema upgrades fail without clearing data; use fresh app storage for an older installation. Existing supported history is retained. The two explicitly bundled snapshots are restored separately at startup; ordinary simulation runs are not automatically imported or restored.
 
 ## Build
 

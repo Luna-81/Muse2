@@ -96,7 +96,7 @@ fun HushApp(
     // Kept above route returns so details and configuration changes preserve dismissal.
     var resultsSheet by rememberSaveable(sessionState.sessionId) { mutableStateOf(true) }
     val galaxyMotion = rememberGalaxyMotion()
-    if (sessionState.phase in listOf(SessionPhase.CONNECTING, SessionPhase.RUNNING, SessionPhase.PAUSED)) {
+    if (sessionState.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
         MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion, onTrackSelected)
         return
     }

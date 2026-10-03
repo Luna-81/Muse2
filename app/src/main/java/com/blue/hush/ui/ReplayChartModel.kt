@@ -34,7 +34,7 @@ internal enum class ReplayMetric(val title: String) {
 
     fun value(sample: StateSample?): Double? {
         if (sample == null || !sample.valid) return null
-        if (this in listOf(ALPHA, THETA, BETA) && !sample.eegBandsAvailable && sample.algorithmVersion != 0) return null
+        if (this in listOf(ALPHA, THETA, BETA) && !sample.eegBandsAvailable) return null
         val value = when (this) {
             CALMNESS -> sample.calmness
             ALPHA -> sample.alpha

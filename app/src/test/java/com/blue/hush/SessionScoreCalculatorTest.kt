@@ -9,7 +9,7 @@ import org.junit.Test
 class SessionScoreCalculatorTest {
     private fun sample(second: Int) = StateSample(
         elapsedSeconds = second, calmness = 0.805, stillness = 0.9, heartRateBpm = 72.5,
-        valid = true, algorithmVersion = 4,
+        valid = true, algorithmVersion = 5,
     )
 
     @Test fun independentMetricsKeepUnroundedAverages() {

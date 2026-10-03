@@ -2,22 +2,18 @@ package com.blue.hush.session
 
 enum class SessionPhase {
     IDLE,
-    CONNECTING,
     RUNNING,
     PAUSED,
     FINISHED,
 }
 
 enum class MusicTrack(val title: String, val subtitle: String) {
-    // Keep persisted enum names and historical labels compatible with earlier sessions.
-    MIST("Mist", "Soft low tones with a breathing texture"),
-    TIDE("Tide", "Slowly rising and falling dual tones"),
     RAIN("Rain", "Steady rainfall with distant thunder"),
     OCEAN("Ocean", "Gentle waves washing over the shore"),
     FIREPLACE("Fireplace", "Warm fire and soft wood crackles");
 
     companion object {
-        val soundscapes = listOf(RAIN, OCEAN, FIREPLACE)
+        val soundscapes = entries
     }
 }
 
@@ -34,7 +30,6 @@ data class StateSample(
     val beta: Double? = null,
     val stillness: Double? = null,
     val valid: Boolean = false,
-    // Legacy rows infer availability only for their original visual mapping.
     val eegBandsAvailable: Boolean = false,
     val heartRateBpm: Double? = null,
     val calmness: Double? = null,
@@ -51,7 +46,7 @@ data class SessionSummary(
     val result: ResultLabel,
     val sampleCount: Int,
     val validSampleCount: Int,
-    val resultSampleCount: Int = validSampleCount,
+    val resultSampleCount: Int = 0,
     val calm: Double? = null,
 )
 
@@ -72,9 +67,6 @@ data class SessionState(
     val volume: Float = 0.7f,
     val result: ResultLabel? = null,
     val message: String? = null,
-    val eegStatus: EegSignalStatus = EegSignalStatus.UNKNOWN,
-    val eegNotice: EegSignalStatus? = null,
-    val calmnessSampleCount: Int = 0,
     val trendSamples: List<StateSample> = emptyList(),
     val scores: SessionScores = SessionScores(),
 )

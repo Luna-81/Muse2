@@ -10,7 +10,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
-import com.blue.hush.session.EegSignalStatus
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.StateSample
@@ -26,7 +25,6 @@ class EegSessionScreenTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private var state by mutableStateOf(SessionState(
         phase = SessionPhase.RUNNING, connected = true, elapsedSeconds = 1,
-        eegStatus = EegSignalStatus.AVAILABLE,
     ))
     private val motion = GalaxyMotion()
 
@@ -50,22 +48,18 @@ class EegSessionScreenTest {
         compose.mainClock.advanceTimeBy(32)
     }
 
-    @Test fun statusSeparatesQualityMissingDataAndDisconnect() {
+    @Test fun signalGapsStayQuietWhileDisconnectAndPauseRemainVisible() {
         show()
         compose.onNodeWithText("Calibrating… 5/10").assertDoesNotExist()
-        updateState { it.copy(eegStatus = EegSignalStatus.LOW_QUALITY) }
+        updateState { it.copy(dataGap = true, elapsedSeconds = 2, latestSample = StateSample(2)) }
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         compose.onNodeWithText("Calibrating… 5/10").assertDoesNotExist()
-        updateState { it.copy(eegNotice = EegSignalStatus.LOW_QUALITY) }
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
         compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
-        updateState { it.copy(eegStatus = EegSignalStatus.INTERFERENCE, eegNotice = EegSignalStatus.INTERFERENCE) }
         compose.onNodeWithText("Signal settling…").assertDoesNotExist()
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
-        updateState { it.copy(eegStatus = EegSignalStatus.UNKNOWN, eegNotice = EegSignalStatus.UNKNOWN) }
         compose.onNodeWithText("Checking signal…").assertDoesNotExist()
-        updateState { it.copy(eegStatus = EegSignalStatus.MISSING, eegNotice = EegSignalStatus.MISSING) }
         compose.onNodeWithText("Waiting for EEG…").assertDoesNotExist()
         updateState { it.copy(connected = false) }
         compose.onNodeWithText("Reconnecting…").assertIsDisplayed()
@@ -78,13 +72,13 @@ class EegSessionScreenTest {
 
     @Test fun lowQualityKeepsAnimationMovingButDoesNotCreateCalmnessAndPauseStopsIt() {
         state = state.copy( latestSample = StateSample(
-            elapsedSeconds = 1, calmness = 0.2, valid = true, algorithmVersion = 2,
+            elapsedSeconds = 1, calmness = 0.2, valid = true, algorithmVersion = 5,
         ))
         show()
         compose.mainClock.advanceTimeBy(500)
         compose.runOnIdle {
-            state = state.copy(elapsedSeconds = 2, eegStatus = EegSignalStatus.LOW_QUALITY,
-                latestSample = StateSample(2, valid = true, algorithmVersion = 2))
+            state = state.copy(elapsedSeconds = 2,
+                latestSample = StateSample(2, valid = true, algorithmVersion = 5))
         }
         compose.mainClock.advanceTimeBy(32)
         val phase = motion.phase
@@ -96,7 +90,7 @@ class EegSessionScreenTest {
             assertEquals(null, state.latestSample?.calmness)
         }
         compose.onNodeWithText("Low signal quality").assertDoesNotExist()
-        compose.onNodeWithText("No calmness data").assertIsDisplayed()
+        compose.onNodeWithText("No calmness data").assertDoesNotExist()
         compose.runOnIdle { state = state.copy(phase = SessionPhase.PAUSED) }
         compose.mainClock.advanceTimeBy(32)
         val pausedPhase = motion.phase

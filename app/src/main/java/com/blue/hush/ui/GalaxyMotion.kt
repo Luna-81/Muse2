@@ -3,21 +3,10 @@ package com.blue.hush.ui
 import com.blue.hush.session.StateSample
 import kotlin.math.exp
 
-// Moderate the motion without hiding score differences; preserve the legacy band mapping.
-internal fun galaxyAgitation(sample: StateSample?): Float? {
-    if (sample?.algorithmVersion != null && sample.algorithmVersion > 0) {
-        return sample.calmness?.takeIf { sample.valid && it.isFinite() && it in 0.0..1.0 }?.let {
-            val unrest = (1 - it).toFloat()
-            // Blend linear and quadratic response to retain visible changes near calm.
-            unrest * (0.5f + 0.5f * unrest)
-        }
-    }
-    if (sample?.valid != true || !sample.eegBandsAvailable) return null
-    val bands = listOf(sample.alpha, sample.theta, sample.beta)
-    if (bands.any { it == null || !it.isFinite() || it !in 0.0..1.0 }) return null
-    val total = bands.sumOf { it!! }
-    if (total <= 0.0) return null
-    return ((sample.beta!! / total - 0.2) / 0.4).toFloat().coerceIn(0f, 1f)
+// Blend linear and quadratic response to retain visible changes near calm.
+internal fun galaxyAgitation(sample: StateSample?): Float? = sample?.chartCalmness()?.let {
+    val unrest = (1 - it).toFloat()
+    unrest * (0.5f + 0.5f * unrest)
 }
 
 /** Continuous visual state, preserved across pause and lifecycle restarts. */

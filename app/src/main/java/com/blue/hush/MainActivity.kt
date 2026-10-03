@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
         selectedDurationSeconds = (savedInstanceState?.getInt("duration", SessionDuration.DEFAULT_SECONDS)
             ?: SessionDuration.DEFAULT_SECONDS).coerceIn(SessionDuration.MIN_MINUTES * 60, SessionDuration.MAX_MINUTES * 60)
         selectedTrack = savedInstanceState?.getString("track")?.let { runCatching { MusicTrack.valueOf(it) }.getOrNull() }
-            ?.takeIf { it in MusicTrack.soundscapes } ?: MusicTrack.RAIN
+            ?: MusicTrack.RAIN
         connectionStateUi = connectionStateUi.copy(simulationMode = savedInstanceState?.getBoolean("simulation") ?: false)
         database = HushDatabase(applicationContext)
         // Queue before history reads; activity recreation must not undo a deletion in this process.
@@ -184,7 +184,7 @@ class MainActivity : ComponentActivity() {
                         selectedTrack = it
                         previewTrack = null
                         previewEngine.stop()
-                        if (sessionState.phase in listOf(SessionPhase.CONNECTING, SessionPhase.RUNNING, SessionPhase.PAUSED)) {
+                        if (sessionState.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
                             MeditationService.setTrack(this, it)
                         }
                     },

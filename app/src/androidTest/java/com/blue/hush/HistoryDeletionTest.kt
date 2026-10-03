@@ -50,7 +50,7 @@ class HistoryDeletionTest {
 
     @Test fun swipeRequiresConfirmationAndCancelKeepsCardUsable() {
         val summary = SessionSummary(1L, 0, 600_000, 600, 600,
-            MusicTrack.MIST, ResultLabel.STEADY, 600, 600)
+            MusicTrack.RAIN, ResultLabel.STEADY, 600, 600)
         var opens = 0
         val deleted = mutableListOf<Long>()
         compose.activity.runOnUiThread {

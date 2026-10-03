@@ -26,11 +26,11 @@ class HushAppScreenTest {
     private var homeReturns = 0
 
     private fun show(largeText: Boolean = false, finished: Boolean = false, withHistory: Boolean = false) {
-        // The Home preview has a continuous frame loop and never idles.
-        compose.mainClock.autoAdvance = finished
+        // Home and completion replay animate continuously; drive their frames explicitly.
+        compose.mainClock.autoAdvance = finished && !withHistory
         val samples = if (withHistory) (1..40).map { StateSample(it, alpha = 0.3, theta = 0.2, beta = 0.2,
-            calmness = 0.8, stillness = 0.9, heartRateBpm = 72.0, valid = true, eegBandsAvailable = true, algorithmVersion = 4) } else emptyList()
-        val summary = SessionSummary(1, 1000, 41000, 600, 40, MusicTrack.MIST, ResultLabel.STEADY, 40, 40)
+            calmness = 0.8, stillness = 0.9, heartRateBpm = 72.0, valid = true, eegBandsAvailable = true, algorithmVersion = 5) } else emptyList()
+        val summary = SessionSummary(1, 1000, 41000, 600, 40, MusicTrack.RAIN, ResultLabel.STEADY, 40, 40)
         compose.activity.runOnUiThread {
             compose.activity.setContent {
                 var tab by remember { mutableStateOf(AppTab.MEDITATE) }
@@ -60,6 +60,11 @@ class HushAppScreenTest {
                     }
                 }
             }
+        }
+        if (withHistory) {
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeBy(500)
+            compose.waitForIdle()
         }
     }
 
@@ -123,6 +128,10 @@ class HushAppScreenTest {
 
     @Test fun completionAndDetailsShowSameScoresAndReturnWithSheetClosed() {
         show(finished = true, withHistory = true)
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.mainClock.advanceTimeBy(32)
+            compose.onNodeWithContentDescription("Calm score: 80 out of 100").isDisplayed()
+        }
         compose.onNodeWithContentDescription("Calm score: 80 out of 100").assertIsDisplayed()
         compose.onNodeWithContentDescription("Heart Rate: 72 BPM").assertIsDisplayed()
         compose.onNodeWithContentDescription("Stability score: 90 out of 100").assertIsDisplayed()
@@ -137,10 +146,13 @@ class HushAppScreenTest {
         saveScreenshot("hush-details-metrics.png")
         compose.onNodeWithContentDescription("Back").performClick()
         compose.mainClock.advanceTimeBy(500)
-        compose.mainClock.autoAdvance = true
         compose.onNodeWithText("Finished").assertIsDisplayed()
         compose.onNodeWithText("More Details").assertDoesNotExist()
         compose.onNodeWithText("Results").performScrollTo().performClick()
+        compose.waitUntil(timeoutMillis = 5_000) {
+            compose.mainClock.advanceTimeBy(32)
+            compose.onNodeWithText("More Details").isDisplayed()
+        }
         compose.onNodeWithText("More Details").assertExists()
     }
 

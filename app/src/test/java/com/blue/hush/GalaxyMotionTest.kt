@@ -42,8 +42,9 @@ class GalaxyMotionTest {
         assertNull(gap.calmness)
     }
 
-    @Test fun compositeValuesDriveGalaxyAndWarmupNeverFallsBackToBands() {
-        val composite = sample(0.4).copy(algorithmVersion = 1, calmness = 0.8)
+    @Test fun calmnessDrivesGalaxyAndMissingScoresNeverFallBackToBands() {
+        val composite = StateSample(1, alpha = 0.3, theta = 0.3, beta = 0.4,
+            valid = true, eegBandsAvailable = true, algorithmVersion = 5, calmness = 0.8)
         assertEquals(0.12f, galaxyAgitation(composite)!!, 0.000001f)
         assertEquals(0.375f, galaxyAgitation(composite.copy(calmness = 0.5))!!, 0.000001f)
         assertEquals(0f, galaxyAgitation(composite.copy(calmness = 1.0))!!, 0f)
@@ -51,6 +52,9 @@ class GalaxyMotionTest {
         assertNull(galaxyAgitation(composite.copy(calmness = null)))
         assertNull(galaxyAgitation(composite.copy(calmness = Double.NaN)))
         assertNull(galaxyAgitation(composite.copy(valid = false)))
+        assertNull(galaxyAgitation(composite.copy(calmness = -0.1)))
+        assertNull(galaxyAgitation(composite.copy(calmness = 1.1)))
+        assertNull(galaxyAgitation(null))
     }
     @Test fun settledRotationIsSlowerAndPeakSpeedIsPreserved() {
         val calm = GalaxyMotion(agitation = 0f)
@@ -65,43 +69,18 @@ class GalaxyMotionTest {
         assertEquals(0.12375f, resting.phase, 0.000001f)
         assertEquals(0.23f, peak.phase, 0.000001f)
     }
-    @Test fun recordedFramesAreDeterministicAndRejectMissingBands() {
+    @Test fun recordedFramesAreDeterministicAndRejectMissingCalmness() {
         val motion = GalaxyMotion()
-        val recorded = StateSample(120, 0.3, 0.3, 0.4, valid = true, eegBandsAvailable = true)
+        val recorded = StateSample(120, calmness = 0.5, valid = true, algorithmVersion = 5)
         motion.showRecordedSample(recorded)
         assertEquals(8.4f, motion.phase, 0.0001f)
-        assertEquals(0.5f, motion.agitation, 0.0001f)
+        assertEquals(0.375f, motion.agitation, 0.0001f)
         assertEquals(1f, motion.visibility, 0f)
-        motion.showRecordedSample(recorded.copy(alpha = null))
+        motion.showRecordedSample(recorded.copy(calmness = null))
         assertEquals(0.25f, motion.visibility, 0f)
         motion.showRecordedSample(recorded)
         assertEquals(8.4f, motion.phase, 0.0001f)
-        assertEquals(0.5f, motion.agitation, 0.0001f)
-    }
-
-    private fun sample(beta: Double) = StateSample(
-        1, alpha = (1 - beta) / 2, theta = (1 - beta) / 2, beta = beta,
-        valid = true, eegBandsAvailable = true,
-    )
-
-    @Test fun relativeBandMappingClampsAndInterpolates() {
-        assertEquals(0f, galaxyAgitation(sample(0.1))!!, 0.0001f)
-        assertEquals(0f, galaxyAgitation(sample(0.2))!!, 0.0001f)
-        assertEquals(0.5f, galaxyAgitation(sample(0.4))!!, 0.0001f)
-        assertEquals(1f, galaxyAgitation(sample(0.6))!!, 0.0001f)
-        assertEquals(1f, galaxyAgitation(sample(0.9))!!, 0.0001f)
-    }
-
-    @Test fun invalidOrSubstitutedBandsDoNotDriveAnimation() {
-        assertNull(galaxyAgitation(null))
-        assertNull(galaxyAgitation(sample(0.4).copy(valid = false)))
-        assertNull(galaxyAgitation(sample(0.4).copy(eegBandsAvailable = false)))
-        assertNull(galaxyAgitation(sample(0.4).copy(alpha = null)))
-        assertNull(galaxyAgitation(sample(0.4).copy(theta = Double.NaN)))
-        assertNull(galaxyAgitation(sample(0.4).copy(beta = Double.POSITIVE_INFINITY)))
-        assertNull(galaxyAgitation(sample(0.4).copy(beta = -0.1)))
-        assertNull(galaxyAgitation(sample(0.4).copy(beta = 1.1)))
-        assertNull(galaxyAgitation(sample(0.4).copy(alpha = 0.0, theta = 0.0, beta = 0.0)))
+        assertEquals(0.375f, motion.agitation, 0.0001f)
     }
 
     @Test fun calmScatterAndRegroupSequenceIsContinuous() {

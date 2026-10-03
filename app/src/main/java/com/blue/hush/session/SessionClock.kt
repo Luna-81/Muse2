@@ -25,5 +25,4 @@ class SessionClock {
         return accumulatedMillis + (nowMillis - activeSince).coerceAtLeast(0L)
     }
 
-    fun isRunning(): Boolean = activeSinceMillis != null
 }

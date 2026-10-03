@@ -21,14 +21,12 @@ internal fun ParticlePanel(
     maxHeight: Dp = 440.dp,
     animate: Boolean = false, retainedSample: StateSample? = null,
 ) {
-    // Preserve the historical band mapping only for rows predating composite processing.
-    val recordedSample = if (sample?.algorithmVersion == 0) sample.copy(eegBandsAvailable = sample.valid) else sample
-    val visual = motion ?: remember(recordedSample, retainedSample) {
-        GalaxyMotion().apply { showRecordedSample(recordedSample, retainedSample) }
+    val visual = motion ?: remember(sample, retainedSample) {
+        GalaxyMotion().apply { showRecordedSample(sample, retainedSample) }
     }
     Card(shape = com.blue.hush.ui.theme.HushShapes.Panel) {
         Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).aspectRatio(1f), contentAlignment = Alignment.Center) {
-            GalaxyParticleField(recordedSample, dataGap, paused = !animate,
+            GalaxyParticleField(sample, dataGap, paused = !animate,
                 modifier = Modifier.fillMaxSize(), state = visual, continueWhenMissing = animate)
         }
     }

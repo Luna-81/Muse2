@@ -64,7 +64,7 @@ class CompletionSheetStateTest {
                 HushApp(
                     sessionState = SessionState(phase = SessionPhase.FINISHED, sessionId = 42),
                     history = emptyList(), activeTab = AppTab.MEDITATE, selectedDurationSeconds = 600,
-                    selectedTrack = MusicTrack.MIST, detailSummary = null, detailSamples = emptyList(),
+                    selectedTrack = MusicTrack.RAIN, detailSummary = null, detailSamples = emptyList(),
                     replayProgress = 0f, connectionState = ConnectionUiState(), previewTrack = null,
                     onTabSelected = {}, onDurationSelected = {}, onTrackSelected = {},
                     onStartScanning = {}, onConnect = {}, onDisconnect = {}, onStartSession = {},

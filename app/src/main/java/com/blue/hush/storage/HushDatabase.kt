@@ -43,19 +43,8 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Remove the obsolete version-two simulation import marker.
-        if (oldVersion < 3) db.execSQL("DROP TABLE IF EXISTS imported_sessions")
-        if (oldVersion < 4) {
-            db.execSQL("ALTER TABLE samples ADD COLUMN heart_rate_bpm REAL")
-            db.execSQL("ALTER TABLE samples ADD COLUMN calmness REAL")
-            db.execSQL("ALTER TABLE samples ADD COLUMN algorithm_version INTEGER NOT NULL DEFAULT 0")
-        }
-        if (oldVersion < 5) {
-            // SQLiteOpenHelper runs upgrades in a transaction. Reset incompatible history once,
-            // including unfinished and formerly auto-imported simulation sessions.
-            db.delete("samples", null, null)
-            db.delete("sessions", null, null)
-        }
+        // Unsupported schemas must fail without silently deleting the user's history.
+        throw android.database.sqlite.SQLiteException("Unsupported database upgrade: $oldVersion to $newVersion")
     }
 
     fun deleteSession(sessionId: Long) {
@@ -160,6 +149,8 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(cursor.getColumnIndexOrThrow("id"))
                 val storedResult = cursor.getString(cursor.getColumnIndexOrThrow("result"))
+                val samples = loadSamples(id)
+                val validSampleCount = samples.count { it.valid }
                 add(
                     SessionSummary(
                         id = id,
@@ -168,12 +159,11 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                         plannedSeconds = cursor.getInt(cursor.getColumnIndexOrThrow("planned_seconds")),
                         actualSeconds = cursor.getInt(cursor.getColumnIndexOrThrow("actual_seconds")),
                         track = MusicTrack.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("track"))),
-                        // Map legacy sessions created before short sessions received a result.
-                        result = runCatching { ResultLabel.valueOf(storedResult) }.getOrDefault(ResultLabel.STEADY),
-                        sampleCount = countSamples(id, validOnly = false),
-                        validSampleCount = countSamples(id, validOnly = true),
-                        resultSampleCount = if (hasCompositeSamples(id)) countCalmnessSamples(id) else countSamples(id, validOnly = true),
-                        calm = SessionScoreCalculator.calculate(loadSamples(id)).calm,
+                        result = ResultLabel.valueOf(storedResult),
+                        sampleCount = samples.size,
+                        validSampleCount = validSampleCount,
+                        resultSampleCount = samples.count { it.valid && it.calmness?.let { value -> value.isFinite() && value in 0.0..1.0 } == true },
+                        calm = SessionScoreCalculator.calculate(samples).calm,
                     ),
                 )
             }
@@ -206,29 +196,6 @@ class HushDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, 
                     ),
                 )
             }
-        }
-    }
-
-    private fun hasCompositeSamples(sessionId: Long): Boolean = readableDatabase.rawQuery(
-        "SELECT 1 FROM samples WHERE session_id = ? AND algorithm_version > 0 LIMIT 1", arrayOf(sessionId.toString()),
-    ).use { it.moveToFirst() }
-
-    private fun countCalmnessSamples(sessionId: Long): Int = readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM samples WHERE session_id = ? AND valid = 1 AND calmness IS NOT NULL", arrayOf(sessionId.toString()),
-    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-
-    private fun countSamples(sessionId: Long, validOnly: Boolean): Int {
-        val selection = if (validOnly) "session_id = ? AND valid = 1" else "session_id = ?"
-        return readableDatabase.query(
-            "samples",
-            arrayOf("COUNT(*)"),
-            selection,
-            arrayOf(sessionId.toString()),
-            null,
-            null,
-            null,
-        ).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getInt(0) else 0
         }
     }
 

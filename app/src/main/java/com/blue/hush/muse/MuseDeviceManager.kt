@@ -48,10 +48,8 @@ class MuseDeviceManager(
     )
 
     data class MusePacket(
-        val device: MuseDevice,
         val type: MuseDataPacketType,
         val values: List<Double>,
-        val timestamp: Long,
         val receivedAtMillis: Long,
     )
 
@@ -84,7 +82,6 @@ class MuseDeviceManager(
         override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
             listener.onDataPacket(
                 MusePacket(
-                    device = deviceFor(muse),
                     type = packet.packetType(),
                     values = when (packet.packetType()) {
                         MuseDataPacketType.EEG,
@@ -96,7 +93,6 @@ class MuseDeviceManager(
                         MuseDataPacketType.PPG -> listOf(Ppg.IR, Ppg.RED).map(packet::getPpgChannelValue)
                         else -> packet.values().map { it.toDouble() }
                     },
-                    timestamp = packet.timestamp(),
                     receivedAtMillis = SystemClock.elapsedRealtime(),
                 ),
             )
@@ -168,30 +164,15 @@ class MuseDeviceManager(
     private companion object {
         val DATA_PACKET_TYPES = listOf(
             MuseDataPacketType.EEG,
-            MuseDataPacketType.GYRO,
             MuseDataPacketType.ALPHA_RELATIVE,
             MuseDataPacketType.BETA_RELATIVE,
-            MuseDataPacketType.DELTA_RELATIVE,
             MuseDataPacketType.THETA_RELATIVE,
-            MuseDataPacketType.GAMMA_RELATIVE,
-            MuseDataPacketType.ALPHA_ABSOLUTE,
-            MuseDataPacketType.BETA_ABSOLUTE,
-            MuseDataPacketType.DELTA_ABSOLUTE,
-            MuseDataPacketType.THETA_ABSOLUTE,
-            MuseDataPacketType.GAMMA_ABSOLUTE,
-            MuseDataPacketType.ALPHA_SCORE,
-            MuseDataPacketType.BETA_SCORE,
-            MuseDataPacketType.DELTA_SCORE,
-            MuseDataPacketType.THETA_SCORE,
-            MuseDataPacketType.GAMMA_SCORE,
             MuseDataPacketType.ACCELEROMETER,
             MuseDataPacketType.PPG,
             MuseDataPacketType.IS_PPG_GOOD,
             MuseDataPacketType.IS_HEART_GOOD,
             MuseDataPacketType.IS_GOOD,
-            MuseDataPacketType.HSI,
             MuseDataPacketType.HSI_PRECISION,
-            MuseDataPacketType.BATTERY,
         )
     }
 }
