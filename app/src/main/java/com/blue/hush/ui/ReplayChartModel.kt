@@ -51,26 +51,18 @@ internal enum class ReplayMetric(val title: String) {
 
     fun label(sample: StateSample?): String {
         val value = value(sample) ?: return "$title —"
-        val number = when (this) {
-            HEART_RATE -> String.format(Locale.US, "%.0f BPM", value)
-            ALPHA, THETA, BETA -> String.format(Locale.US, "%.1f", value * 100)
-            else -> String.format(Locale.US, "%.0f", value * 100)
-        }
-        return "$title $number"
+        return "$title ${formatNumber(value)}"
     }
-}
 
-// Inputs are sorted by intersection height. Move labels, never their measured points.
-internal fun replayLabelTops(centers: List<Float>, heights: List<Float>, availableHeight: Float, gap: Float): List<Float> {
-    if (centers.isEmpty()) return emptyList()
-    val tops = mutableListOf<Float>()
-    centers.forEachIndexed { index, center ->
-        val minimum = if (index == 0) 0f else tops[index - 1] + heights[index - 1] + gap
-        tops += (center - heights[index] / 2).coerceAtLeast(minimum)
+    /** Only return the value itself, which is used to display below the legend title at the bottom. */
+    fun displayValue(sample: StateSample?): String {
+        val value = value(sample) ?: return "—"
+        return formatNumber(value)
     }
-    tops[tops.lastIndex] = tops.last().coerceAtMost(availableHeight - heights.last())
-    for (index in tops.lastIndex - 1 downTo 0) {
-        tops[index] = tops[index].coerceAtMost(tops[index + 1] - gap - heights[index])
+
+    private fun formatNumber(value: Double): String = when (this) {
+        HEART_RATE -> String.format(Locale.US, "%.0f BPM", value)
+        ALPHA, THETA, BETA -> String.format(Locale.US, "%.1f", value * 100)
+        else -> String.format(Locale.US, "%.0f", value * 100)
     }
-    return tops
 }
