@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -142,15 +141,7 @@ internal fun ReplayChart(
             val lowerTick = measurer.measure("0", labelStyle)
             val plotWidth = with(density) { maxWidth.toPx() }
             val gap = with(density) { 4.dp.toPx() }
-            // Limit label width to either side of a centered cursor; wrapping respects font scale.
-            val labelWidth = ((plotWidth - inset * 2) / 2 - inset).toInt().coerceAtLeast(1)
-            val labels = metrics.mapNotNull { metric -> metric.value(selectedSample)?.let { value ->
-                Triple(metric, metric.level(value).toFloat(), measurer.measure(
-                    metric.label(selectedSample), labelStyle, constraints = Constraints(maxWidth = labelWidth),
-                ))
-            } }.sortedByDescending { it.second }
-            val labelHeight = labels.sumOf { it.third.size.height } + gap * (labels.size - 1).coerceAtLeast(0)
-            val heightPx = maxOf(with(density) { (304.dp * density.fontScale.coerceAtLeast(1f)).toPx() }, labelHeight + inset * 2)
+            val heightPx = with(density) { (304.dp * density.fontScale.coerceAtLeast(1f)).toPx() }
             val topTickSpace = upperTick.size.height + gap
             val plotHeight = with(density) { (heightPx + topTickSpace).toDp() }
             Box {
@@ -192,8 +183,8 @@ internal fun ReplayChart(
                             (it.elapsedSeconds.toFloat() / elapsedSeconds.coerceAtLeast(1) - currentViewport().start) / currentViewport().span
                         }
                         val draggingCursor = cursorFraction != null && cursorFraction in 0f..1f &&
-                            abs(down.position.x - (inset + cursorFraction * width)) <= 24.dp.toPx() &&
-                            abs(down.position.y - size.height / 2f) <= 24.dp.toPx()
+                                abs(down.position.x - (inset + cursorFraction * width)) <= 24.dp.toPx() &&
+                                abs(down.position.y - size.height / 2f) <= 24.dp.toPx()
                         var transformed = false
                         var dragging = false
                         var scrolling = false
@@ -202,7 +193,6 @@ internal fun ReplayChart(
                             val event = awaitPointerEvent()
                             val pressed = event.changes.filter { it.pressed }
                             if (pressed.size >= 2) {
-                                // Once a pinch starts, remaining fingers never become a replay seek.
                                 transformed = true
                                 val anchor = event.calculateCentroid(useCurrent = false)
                                 if (anchor != Offset.Unspecified) {
@@ -250,21 +240,13 @@ internal fun ReplayChart(
                     }
                     drawText(upperTick, HushColors.Muted, topLeft = Offset(inset, plotTop - upperTick.size.height - gap))
                     drawText(lowerTick, HushColors.Muted, topLeft = Offset(inset, y(0f) - lowerTick.size.height - gap))
+                    // Only retain the vertical line of the cursor and the dots on the curved line, and no longer draw floating numerical labels.
                     selectedSample?.takeIf { x(it.elapsedSeconds) in inset..(inset + width) }?.let { selected ->
                         val cursorX = x(selected.elapsedSeconds)
                         drawLine(HushColors.Accent, Offset(cursorX, plotTop), Offset(cursorX, plotTop + height), 2.dp.toPx())
-                        val tops = replayLabelTops(labels.map { y(it.second) - plotTop },
-                            labels.map { it.third.size.height.toFloat() }, height, gap)
-                        labels.forEachIndexed { index, (metric, level, text) ->
-                            val point = Offset(cursorX, y(level))
-                            val right = cursorX + inset + text.size.width <= size.width - inset
-                            val left = if (right) cursorX + inset else cursorX - inset - text.size.width
-                            val top = plotTop + tops[index]
-                            val edge = Offset(if (right) left else left + text.size.width, top + text.size.height / 2f)
-                            drawLine(metric.color.copy(alpha = 0.7f), point, edge, 1.dp.toPx())
-                            drawRect(HushColors.Surface.copy(alpha = 0.95f), Offset(left, top),
-                                androidx.compose.ui.geometry.Size(text.size.width.toFloat(), text.size.height.toFloat()))
-                            drawText(text, metric.color, topLeft = Offset(left, top))
+                        metrics.forEach { metric ->
+                            val value = metric.value(selected) ?: return@forEach
+                            val point = Offset(cursorX, y(metric.level(value).toFloat()))
                             drawCircle(metric.color, 3.dp.toPx(), point)
                         }
                         drawCircle(HushColors.Surface, 7.dp.toPx(), Offset(cursorX, size.height / 2))
@@ -300,9 +282,19 @@ internal fun ReplayChart(
                                 }, HushColors.OnAccent, style = Stroke(1.5.dp.toPx(), cap = StrokeCap.Round))
                             }
                         }
-                        Text(metric.title, style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.weight(1f).padding(start = HushSpace.xs),
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // Title + Value: The value is displayed only when the indicator is selected, and it is placed below the title.
+                        Column(Modifier.weight(1f).padding(start = HushSpace.xs)) {
+                            Text(metric.title, style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (metric in visibleMetrics) {
+                                Text(
+                                    text = metric.displayValue(selectedSample),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = metric.color,
+                                    maxLines = 1,
+                                )
+                            }
+                        }
                     }
                 }
             }
