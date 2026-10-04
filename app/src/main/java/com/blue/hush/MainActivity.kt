@@ -84,7 +84,6 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    /** 权限 → 蓝牙开关 → 扫描，三步按顺序检查。 */
     private fun ensureBluetoothThenScan() {
         if (!viewModel.hasBluetoothPermission()) {
             permissionLauncher.launch(viewModel.requiredRequestPermissions())

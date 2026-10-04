@@ -12,35 +12,12 @@ import androidx.core.content.ContextCompat
 import com.blue.hush.ui.ConnectionUiState
 import com.choosemuse.libmuse.ConnectionState
 
-/**
- * 空闲状态下的蓝牙编排器。
- *
- * 职责：
- *  - 扫描设备、维护设备列表
- *  - 自动选择设备、连接、超时、重试
- *  - 监听蓝牙开关
- *  - 把新状态写回 ViewModel（通过 onState）
- *
- * 不管：
- *  - 会话期间（MeditationService 接管蓝牙）
- *  - 权限请求（Activity 负责）
- *  - UI 状态的其他字段（ViewModel 负责）
- *
- * 线程：所有回调都保证在主线程。
- *
- * 状态所有权：
- *  - 唯一数据源是 ViewModel 的 uiState.connectionState
- *  - Coordinator 通过 readState() 读取当前状态
- *  - Coordinator 通过 onState() 写回状态
- *  - Coordinator 内部只持有"私有执行状态"（retries、generation 等）
- */
 class BluetoothCoordinator(
     private val context: Context,
     private val readState: () -> ConnectionUiState,
     private val onState: (ConnectionUiState) -> Unit,
 ) {
 
-    // ---------- 私有执行状态 ----------
     private val mainHandler = Handler(Looper.getMainLooper())
     private val preferences: SharedPreferences =
         context.getSharedPreferences("muse_preferences", Context.MODE_PRIVATE)
@@ -56,11 +33,9 @@ class BluetoothCoordinator(
     private var selectionPending = false
     private var automaticPaused = false
 
-    // 前置条件（由 ViewModel 注入）
     private var hasPermission: () -> Boolean = { false }
     private var bluetoothEnabledFn: () -> Boolean = { false }
 
-    // ---------- 广播接收器 ----------
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             refresh()
@@ -93,7 +68,6 @@ class BluetoothCoordinator(
         }
     }
 
-    // ---------- 初始化 ----------
     init {
         ContextCompat.registerReceiver(
             context,
@@ -103,7 +77,6 @@ class BluetoothCoordinator(
         )
     }
 
-    // ---------- 外部注入 ----------
     fun updatePrerequisites(
         hasPermission: () -> Boolean,
         bluetoothEnabled: () -> Boolean,
@@ -112,7 +85,6 @@ class BluetoothCoordinator(
         this.bluetoothEnabledFn = bluetoothEnabled
     }
 
-    // ---------- 生命周期 ----------
     fun onForeground() {
         foreground = true
         refresh()
@@ -128,7 +100,6 @@ class BluetoothCoordinator(
         refresh()
     }
 
-    // ---------- 命令 ----------
     fun startScanning() {
         automaticPaused = false
         if (!hasPermission()) return
@@ -176,10 +147,8 @@ class BluetoothCoordinator(
         runCatching { context.unregisterReceiver(bluetoothReceiver) }
     }
 
-    /** 公开的"重新同步"入口。ViewModel 在状态变化时调用。 */
     fun refresh() = syncDiscovery()
 
-    // ---------- 内部 ----------
     private fun pushError(message: String) {
         onState(readState().copy(errorMessage = message))
     }
@@ -199,7 +168,6 @@ class BluetoothCoordinator(
     private fun syncDiscovery() {
         val s = readState()
 
-        // 先同步前置状态
         onState(s.copy(
             hasBluetoothPermission = hasPermission(),
             bluetoothEnabled = bluetoothEnabledFn(),

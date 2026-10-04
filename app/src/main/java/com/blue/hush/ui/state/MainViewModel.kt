@@ -21,29 +21,14 @@ import com.blue.hush.storage.SessionRepository
 import com.blue.hush.ui.AppTab
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-/**
- * 表现层 ViewModel：
- *  - 持有 MainUiState
- *  - 订阅 SessionRuntime
- *  - 蓝牙编排 → BluetoothCoordinator        （阶段 3）
- *  - 数据读写 → SessionRepository            （阶段 2）
- *  - 会话启动/指令 → SessionCoordinator      （阶段 4）
- *  - 试听 → PreviewController                （阶段 4）
- *  - 权限 → PermissionManager               （阶段 4）
- *
- * MainViewModel 本身只做"状态持有 + 事件转发"。
- */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ---------- 状态 ----------
     var uiState by mutableStateOf(MainUiState())
         private set
 
-    // ---------- 基础设施 ----------
     private val mainHandler = Handler(Looper.getMainLooper())
     private val appContext: Context get() = getApplication()
 
-    // ---------- 各功能模块 ----------
     private val permissions = PermissionManager(application)
     private val repository = SessionRepository(application)
 
@@ -72,7 +57,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var removeSessionListener: (() -> Unit)? = null
 
-    // ---------- 初始化 ----------
     init {
         repository.restoreBundledHistoryOnce(appContext)
 
@@ -102,7 +86,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHistory()
     }
 
-    // ---------- 生命周期转发 ----------
     fun onForeground() {
         bluetooth.onForeground()
     }
@@ -113,7 +96,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         bluetooth.onBackground()
     }
 
-    // ---------- UI 回调 ----------
     fun onTabSelected(tab: AppTab) {
         uiState = uiState.copy(activeTab = tab)
         bluetooth.refresh()
@@ -177,14 +159,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    // ---------- 权限（转发给 PermissionManager） ----------
     fun hasBluetoothPermission(): Boolean = permissions.hasBluetoothPermission()
 
     fun requiredBluetoothPermissions(): Array<String> = permissions.requiredBluetoothPermissions()
 
     fun requiredRequestPermissions(): Array<String> = permissions.requiredRequestPermissions()
 
-    // ---------- 蓝牙命令（转发给 Coordinator） ----------
     fun startScanning() {
         bluetooth.startScanning()
     }
@@ -201,7 +181,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         bluetooth.disconnect()
     }
 
-    // ---------- 会话（转发给 SessionCoordinator） ----------
     fun startSession(simulationMode: Boolean) {
         preview.stop()
         uiState = uiState.copy(previewTrack = null)
@@ -221,7 +200,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    // ---------- 历史 / 详情 ----------
     fun openDetail(summary: SessionSummary) {
         repository.loadDetail(summary) { samples ->
             uiState = uiState.copy(
@@ -263,7 +241,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshHistory()
     }
 
-    // ---------- 清理 ----------
     override fun onCleared() {
         removeSessionListener?.invoke()
         mainHandler.removeCallbacksAndMessages(null)
