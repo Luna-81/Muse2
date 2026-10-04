@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.galaxy
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush

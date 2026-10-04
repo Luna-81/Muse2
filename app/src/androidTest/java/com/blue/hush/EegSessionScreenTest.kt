@@ -13,8 +13,8 @@ import androidx.compose.ui.unit.Density
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.StateSample
-import com.blue.hush.ui.GalaxyMotion
-import com.blue.hush.ui.MeditationGalaxyScreen
+import com.blue.hush.ui.galaxy.GalaxyMotion
+import com.blue.hush.ui.screens.MeditationGalaxyScreen
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

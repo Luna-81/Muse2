@@ -1,8 +1,8 @@
 package com.blue.hush
 
 import com.blue.hush.session.StateSample
-import com.blue.hush.ui.ReplayMetric
-import com.blue.hush.ui.ReplayViewport
+import com.blue.hush.ui.charts.ReplayMetric
+import com.blue.hush.ui.charts.ReplayViewport
 import com.blue.hush.ui.replayLabelTops
 import org.junit.Assert.*
 import org.junit.Test

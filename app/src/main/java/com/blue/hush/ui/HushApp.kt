@@ -25,6 +25,21 @@ import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionScoreCalculator
 import com.blue.hush.replay.ReplayCursor
 import com.blue.hush.session.*
+import com.blue.hush.ui.charts.ReplayChart
+import com.blue.hush.ui.charts.ReplayMetric
+import com.blue.hush.ui.components.HushNavIcon
+import com.blue.hush.ui.components.HushPanel
+import com.blue.hush.ui.components.MindprintThumbnail
+import com.blue.hush.ui.components.ParticlePanel
+import com.blue.hush.ui.components.PrimaryAction
+import com.blue.hush.ui.galaxy.GalaxyParticleField
+import com.blue.hush.ui.galaxy.galaxyAgitation
+import com.blue.hush.ui.galaxy.rememberGalaxyMotion
+import com.blue.hush.ui.screens.CompletionScreen
+import com.blue.hush.ui.screens.MeditationGalaxyScreen
+import com.blue.hush.ui.screens.MusicButton
+import com.blue.hush.ui.screens.SessionPreparationPanel
+import com.blue.hush.ui.screens.SessionScoreSummary
 import com.blue.hush.ui.theme.*
 import com.choosemuse.libmuse.ConnectionState
 import java.text.SimpleDateFormat
@@ -97,7 +112,15 @@ fun HushApp(
     var resultsSheet by rememberSaveable(sessionState.sessionId) { mutableStateOf(true) }
     val galaxyMotion = rememberGalaxyMotion()
     if (sessionState.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
-        MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion, onTrackSelected)
+        MeditationGalaxyScreen(
+            sessionState,
+            onPause,
+            onResume,
+            onFinish,
+            onVolumeChanged,
+            galaxyMotion,
+            onTrackSelected
+        )
         return
     }
     if (detailSummary != null) {
@@ -106,7 +129,8 @@ fun HushApp(
     }
     if (sessionState.phase == SessionPhase.FINISHED) {
         val summary = history.firstOrNull { it.id == sessionState.sessionId }
-        CompletionScreen(sessionState, galaxyMotion, resultsSheet,
+        CompletionScreen(
+            sessionState, galaxyMotion, resultsSheet,
             onShowResults = { resultsSheet = true }, onDismissResults = { resultsSheet = false },
             onBack = onStartNewSession, detailAvailable = summary != null,
             onDetails = { summary?.let { resultsSheet = false; onOpenDetail(it) } })
@@ -125,13 +149,26 @@ fun HushApp(
                         Text("Hush", style = MaterialTheme.typography.headlineLarge)
                         MusicButton(selectedTrack.title, onClick = { musicSheet = true })
                     } }
-                    item { GalaxyParticleField(null, dataGap = false, paused = false,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), state = galaxyMotion, preview = true) }
+                    item {
+                        GalaxyParticleField(
+                            null, dataGap = false, paused = false,
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
+                                .aspectRatio(1f), state = galaxyMotion, preview = true
+                        )
+                    }
                     item { Text("A moment of stillness", style = MaterialTheme.typography.titleMedium) }
-                    item { SessionPreparationPanel(selectedDurationSeconds, connectionState,
-                        onDurationSelected, onDeviceSelected = { deviceSheet = true }, onStart = {
-                            if (connectionState.ready) onStartSession() else { deviceSheet = true; onStartScanning() }
-                        }) }
+                    item {
+                        SessionPreparationPanel(
+                            selectedDurationSeconds,
+                            connectionState,
+                            onDurationSelected,
+                            onDeviceSelected = { deviceSheet = true },
+                            onStart = {
+                                if (connectionState.ready) onStartSession() else {
+                                    deviceSheet = true; onStartScanning()
+                                }
+                            })
+                    }
                 }
             } else HistoryScreen(history, onOpenDetail, onDeleteSession)
         }
@@ -141,7 +178,12 @@ fun HushApp(
             item { Text("Your Muse", style = MaterialTheme.typography.headlineMedium); Text(connectionState.status, color = HushColors.Muted) }
             connectionState.errorMessage?.let { message -> item { Text(message, color = HushColors.Error) } }
             if (!connectionState.simulationMode) {
-                if (!connectionState.ready) item { PrimaryAction(if (connectionState.hasBluetoothPermission) "Connect Muse" else "Allow Bluetooth", onStartScanning) }
+                if (!connectionState.ready) item {
+                    PrimaryAction(
+                        if (connectionState.hasBluetoothPermission) "Connect Muse" else "Allow Bluetooth",
+                        onStartScanning
+                    )
+                }
                 items(connectionState.devices, key = { it.macAddress }) { device ->
                     OutlinedButton(onClick = { onConnect(device) }, enabled = connectionState.connectionState != ConnectionState.CONNECTING && connectionState.connectedDeviceAddress != device.macAddress, modifier = Modifier.fillMaxWidth()) {
                         Column { Text(device.name.ifBlank { "Muse 2" }); Text(device.macAddress.takeLast(5), style = MaterialTheme.typography.bodySmall) }
@@ -179,14 +221,23 @@ internal fun SoundscapeSheet(
                 Slider(value = volume, onValueChange = onVolumeChanged,
                     modifier = Modifier.semantics { contentDescription = "Meditation volume" })
             }
-            items(MusicTrack.soundscapes, key = { it.name }) { track -> HushPanel(Modifier.fillMaxWidth()) {
-                Text(track.title, style = MaterialTheme.typography.titleLarge)
-                Text(track.subtitle, color = HushColors.Muted)
-                Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                    FilterChip(selected = selectedTrack == track, onClick = { onTrackSelected(track) }, label = { Text(if (selectedTrack == track) "Selected" else "Select") })
-                    if (onPreviewTrack != null) TextButton(onClick = { onPreviewTrack(track) }) { Text(if (previewTrack == track) "Stop preview" else "Preview") }
+            items(MusicTrack.soundscapes, key = { it.name }) { track ->
+                HushPanel(Modifier.fillMaxWidth()) {
+                    Text(track.title, style = MaterialTheme.typography.titleLarge)
+                    Text(track.subtitle, color = HushColors.Muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+                        FilterChip(
+                            selected = selectedTrack == track,
+                            onClick = { onTrackSelected(track) },
+                            label = { Text(if (selectedTrack == track) "Selected" else "Select") })
+                        if (onPreviewTrack != null) TextButton(onClick = { onPreviewTrack(track) }) {
+                            Text(
+                                if (previewTrack == track) "Stop preview" else "Preview"
+                            )
+                        }
+                    }
                 }
-            } }
+            }
         }
     }
 }
@@ -210,7 +261,14 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
     }
     LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
         item { Text("History", style = MaterialTheme.typography.headlineLarge) }
-        if (history.isEmpty()) item { HushPanel(Modifier.fillMaxWidth()) { Text("Your quiet moments, collected."); Text("Complete a session to see it here.", color = HushColors.Muted) } }
+        if (history.isEmpty()) item {
+            HushPanel(Modifier.fillMaxWidth()) {
+                Text("Your quiet moments, collected."); Text(
+                "Complete a session to see it here.",
+                color = HushColors.Muted
+            )
+            }
+        }
         items(history, key = { it.id }) { summary ->
             val dismissState = rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.4f })
             LaunchedEffect(dismissState.settledValue) {
@@ -266,7 +324,9 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
     val scores = remember(samples) { SessionScoreCalculator.calculate(samples) }
     val sample = cursor.sampleAt(progress)
     val retainedSample = remember(samples, sample) {
-        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
+        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(
+            it
+        ) != null }
     }
     Page("Session details", onBack) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = HushSpace.xs, bottom = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
@@ -282,21 +342,42 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
             } }
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl)) {
-                    ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample)
+                    ParticlePanel(
+                        sample,
+                        sample?.valid != true,
+                        animate = true,
+                        retainedSample = retainedSample
+                    )
                 }
             } }
-            item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
-                contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
-                key(summary.id) {
-                    ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
-                        onMetricChanged = { metric, checked ->
-                            val bit = 1 shl metric.ordinal
-                            visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
-                        },
-                        onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) },
-                        autoPlay = true)
+            item {
+                HushPanel(
+                    Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+                    contentPadding = PaddingValues(
+                        horizontal = HushSpace.sm,
+                        vertical = HushSpace.xs
+                    )
+                ) {
+                    key(summary.id) {
+                        ReplayChart(
+                            samples, summary.actualSeconds, sample, visibleMetrics,
+                            onMetricChanged = { metric, checked ->
+                                val bit = 1 shl metric.ordinal
+                                visibleMask =
+                                    if (checked) visibleMask or bit else visibleMask and bit.inv()
+                            },
+                            onReplaySecondSelected = { second ->
+                                onProgress(
+                                    cursor.progressAtSecond(
+                                        second
+                                    )
+                                )
+                            },
+                            autoPlay = true
+                        )
+                    }
                 }
-            } }
+            }
         }
     }
 }

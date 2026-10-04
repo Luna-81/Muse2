@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.charts
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color

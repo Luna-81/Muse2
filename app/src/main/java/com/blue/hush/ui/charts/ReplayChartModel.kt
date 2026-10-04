@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.charts
 
 import com.blue.hush.session.StateSample
 import java.util.Locale

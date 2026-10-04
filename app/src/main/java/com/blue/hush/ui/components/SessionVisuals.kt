@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -13,7 +13,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import com.blue.hush.session.StateSample
+import com.blue.hush.ui.AppTab
+import com.blue.hush.ui.galaxy.GalaxyMotion
+import com.blue.hush.ui.galaxy.GalaxyParticleField
 import com.blue.hush.ui.theme.HushColors
+import com.blue.hush.ui.theme.HushShapes
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @Composable
 internal fun ParticlePanel(
@@ -24,10 +31,12 @@ internal fun ParticlePanel(
     val visual = motion ?: remember(sample, retainedSample) {
         GalaxyMotion().apply { showRecordedSample(sample, retainedSample) }
     }
-    Card(shape = com.blue.hush.ui.theme.HushShapes.Panel) {
+    Card(shape = HushShapes.Panel) {
         Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).aspectRatio(1f), contentAlignment = Alignment.Center) {
-            GalaxyParticleField(sample, dataGap, paused = !animate,
-                modifier = Modifier.fillMaxSize(), state = visual, continueWhenMissing = animate)
+            GalaxyParticleField(
+                sample, dataGap, paused = !animate,
+                modifier = Modifier.fillMaxSize(), state = visual, continueWhenMissing = animate
+            )
         }
     }
 }
@@ -60,9 +69,9 @@ internal fun HushNavIcon(tab: AppTab) {
 internal fun MindprintThumbnail(id: Long, modifier: Modifier = Modifier) {
     Canvas(modifier) {
         for (i in 0 until 72) {
-            val radius = size.minDimension * 0.44f * kotlin.math.sqrt(i / 72f)
+            val radius = size.minDimension * 0.44f * sqrt(i / 72f)
             val angle = i * 2.4f + (id % 31).toFloat()
-            val point = center + Offset(kotlin.math.cos(angle) * radius, kotlin.math.sin(angle) * radius * 0.75f)
+            val point = center + Offset(cos(angle) * radius, sin(angle) * radius * 0.75f)
             drawCircle(HushColors.Trends[i % 4].copy(alpha = 0.7f), 1.dp.toPx(), point)
         }
     }

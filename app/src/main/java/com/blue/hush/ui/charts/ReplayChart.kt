@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.charts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -13,10 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
@@ -34,6 +37,7 @@ import com.blue.hush.ui.theme.HushSpace
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.blue.hush.ui.formatDuration
 
 private val ReplayMetric.color: Color
     get() = when (this) {
@@ -123,9 +127,10 @@ internal fun ReplayChart(
                 Canvas(Modifier.size(16.dp)) {
                     val color = if (canPlay) HushColors.Accent else HushColors.Muted
                     if (playing) {
-                        drawRect(color, size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height))
+                        drawRect(color, size = Size(size.width * 0.3f, size.height))
                         drawRect(color, topLeft = Offset(size.width * 0.7f, 0f),
-                            size = androidx.compose.ui.geometry.Size(size.width * 0.3f, size.height))
+                            size = Size(size.width * 0.3f, size.height)
+                        )
                     } else {
                         drawPath(Path().apply {
                             moveTo(0f, 0f); lineTo(size.width, size.height / 2); lineTo(0f, size.height); close()
@@ -272,8 +277,8 @@ internal fun ReplayChart(
                         Canvas(Modifier.size(16.dp)) {
                             val checked = metric in visibleMetrics
                             drawRoundRect(if (checked) metric.color else HushColors.Muted,
-                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
-                                style = if (checked) androidx.compose.ui.graphics.drawscope.Fill else Stroke(1.dp.toPx()))
+                                cornerRadius = CornerRadius(2.dp.toPx()),
+                                style = if (checked) Fill else Stroke(1.dp.toPx()))
                             if (checked) {
                                 drawPath(Path().apply {
                                     moveTo(size.width * 0.2f, size.height * 0.5f)

@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import com.blue.hush.replay.ReplayCursor
 import com.blue.hush.session.*
 import com.blue.hush.ui.*
+import com.blue.hush.ui.charts.ReplayChart
+import com.blue.hush.ui.charts.ReplayMetric
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -37,7 +39,8 @@ class ReplayChartScreenTest {
         val cursor = ReplayCursor(values)
         val progress = mutableStateOf(0f)
         compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
-            ReplayChart(values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
+            ReplayChart(
+                values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
                 { _, _ -> }, { progress.value = cursor.progressAtSecond(it) })
         } } }
         compose.mainClock.advanceTimeBy(32)
@@ -84,9 +87,15 @@ class ReplayChartScreenTest {
         val progress = mutableStateOf(0f)
         val cursor = ReplayCursor(values)
         compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
-            if (open.value) ReplayChart(if (loaded.value) values else emptyList(), 100,
-                if (loaded.value) cursor.sampleAt(progress.value) else null, ReplayMetric.entries.toSet(),
-                { _, _ -> }, { progress.value = cursor.progressAtSecond(it) }, autoPlay = true)
+            if (open.value) ReplayChart(
+                if (loaded.value) values else emptyList(),
+                100,
+                if (loaded.value) cursor.sampleAt(progress.value) else null,
+                ReplayMetric.entries.toSet(),
+                { _, _ -> },
+                { progress.value = cursor.progressAtSecond(it) },
+                autoPlay = true
+            )
         } } }
         compose.mainClock.advanceTimeBy(64)
         compose.onNodeWithContentDescription("Play replay").assertIsNotEnabled()
@@ -110,7 +119,8 @@ class ReplayChartScreenTest {
         val cursor = ReplayCursor(values)
         val progress = mutableStateOf(cursor.progressAtSecond(50f))
         compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
-            ReplayChart(values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
+            ReplayChart(
+                values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
                 { _, _ -> }, { progress.value = cursor.progressAtSecond(it) })
         } } }
         val chart = compose.onNodeWithContentDescription("Session replay")
@@ -156,7 +166,8 @@ class ReplayChartScreenTest {
         val cursor = ReplayCursor(values)
         val progress = mutableStateOf(cursor.progressAtSecond(50f))
         compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
-            ReplayChart(values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
+            ReplayChart(
+                values, 100, cursor.sampleAt(progress.value), ReplayMetric.entries.toSet(),
                 { _, _ -> }, { progress.value = cursor.progressAtSecond(it) })
         } } }
         val chart = compose.onNodeWithContentDescription("Session replay")
@@ -178,8 +189,11 @@ class ReplayChartScreenTest {
         val progress = mutableStateOf(0f)
         compose.activity.runOnUiThread { compose.activity.setContent { HushTheme {
             var visible by remember { mutableStateOf(ReplayMetric.entries.toSet()) }
-            ReplayChart(values, 100, cursor.sampleAt(progress.value), visible,
-                { metric, checked -> visible = if (checked) visible + metric else visible - metric },
+            ReplayChart(
+                values, 100, cursor.sampleAt(progress.value), visible,
+                { metric, checked ->
+                    visible = if (checked) visible + metric else visible - metric
+                },
                 { progress.value = cursor.progressAtSecond(it) })
         } } }
         ReplayMetric.entries.forEach { compose.onNode(hasText(it.title) and isToggleable()).assertIsOn() }
@@ -241,7 +255,13 @@ class ReplayChartScreenTest {
             val viewportDensity = density.density * if (width.value > 320.dp) 0.55f else 1f
             CompositionLocalProvider(LocalDensity provides Density(viewportDensity, fontScale.value)) {
                 Box(Modifier.width(width.value)) {
-                    ReplayChart(values, 100, values[second.value - 1], ReplayMetric.entries.toSet(), { _, _ -> }, {})
+                    ReplayChart(
+                        values,
+                        100,
+                        values[second.value - 1],
+                        ReplayMetric.entries.toSet(),
+                        { _, _ -> },
+                        {})
                 }
             }
         } } }
