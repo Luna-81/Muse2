@@ -66,4 +66,4 @@ Live meditation controls are ordered as Calmness chart, remaining time, Pause/Re
 
 Coverage uses separate raised cards with a prominent one-decimal percentage, progress bar, measured/total MM:SS durations and a textual availability status. Exact coverage below 50% uses Error (red), 50% to below 70% uses Warm (yellow), and 70% or above uses Accent. These thresholds describe data availability only and do not change score computation. Coverage contains no help button.
 
-Session details keeps only Calm/Stability/Heart Rate summary values above the galaxy. Data coverage is a separate panel below the Replay chart and metric controls, so it does not push the visualization and curves below a large coverage block.
+Session details keeps only Calm/Stability/Heart Rate summary values above the galaxy. Data coverage is a separate panel below the Replay chart and metric controls, so it does not push the visualization and curves below a large coverage block. The Replay and Data coverage panels share centered outer widths, a 640dp maximum content width, and 4dp horizontal margins.

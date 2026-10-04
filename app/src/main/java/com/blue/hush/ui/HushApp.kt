@@ -308,7 +308,9 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
                     ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample)
                 }
             } }
-            item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                HushPanel(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth()
+                    .padding(horizontal = HushSpace.xs),
                 contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
                 key(summary.id) {
                     ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
@@ -319,10 +321,10 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
                         onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) },
                         autoPlay = true)
                 }
-            } }
+            } } }
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 HushPanel(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth()
-                    .padding(horizontal = HushSpace.xl)) {
+                    .padding(horizontal = HushSpace.xs)) {
                     DataCoverageSummary(samples, summary.actualSeconds)
                 }
             } }
