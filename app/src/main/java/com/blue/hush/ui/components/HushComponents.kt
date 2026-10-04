@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween

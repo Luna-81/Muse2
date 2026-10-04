@@ -8,6 +8,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.runtime.*
 import com.blue.hush.session.*
 import com.blue.hush.ui.*
+import com.blue.hush.ui.galaxy.rememberGalaxyMotion
+import com.blue.hush.ui.screens.CompletionScreen
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Rule
 import org.junit.Test
@@ -25,11 +27,17 @@ class CompletionSheetStateTest {
             var showResults by remember { mutableStateOf(true) }
             HushTheme {
                 CompletionScreen(
-                    SessionState(phase = SessionPhase.FINISHED, sessionId = 42,
-                        elapsedSeconds = 120, trendSamples = samples, latestSample = samples.last()),
-                    rememberGalaxyMotion(), showResults = showResults,
-                    onShowResults = { showResults = true }, onDismissResults = { showResults = false },
-                    onBack = {}, detailAvailable = false, onDetails = {},
+                    SessionState(
+                        phase = SessionPhase.FINISHED, sessionId = 42,
+                        elapsedSeconds = 120, trendSamples = samples, latestSample = samples.last()
+                    ),
+                    rememberGalaxyMotion(),
+                    showResults = showResults,
+                    onShowResults = { showResults = true },
+                    onDismissResults = { showResults = false },
+                    onBack = {},
+                    detailAvailable = false,
+                    onDetails = {},
                 )
             }
         }

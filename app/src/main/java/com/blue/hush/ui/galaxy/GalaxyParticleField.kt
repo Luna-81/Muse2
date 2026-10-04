@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.galaxy
 
 import com.blue.hush.ui.theme.HushColors
 
@@ -58,7 +58,10 @@ internal fun GalaxyParticleField(
     continueWhenMissing: Boolean = false,
 ) {
     // Preview is decorative; live missing data must never be interpreted as calm.
-    val target = rememberUpdatedState(if (preview) 0f else if (dataGap) null else galaxyAgitation(sample))
+    val target = rememberUpdatedState(if (preview) 0f else if (dataGap) null else galaxyAgitation(
+        sample
+    )
+    )
     val keepMoving = rememberUpdatedState(continueWhenMissing)
     val frame = remember(state) { mutableFloatStateOf(0f) }
 

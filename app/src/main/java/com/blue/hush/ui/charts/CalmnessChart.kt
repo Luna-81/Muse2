@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.charts
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

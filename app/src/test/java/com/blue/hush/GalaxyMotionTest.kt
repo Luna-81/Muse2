@@ -1,8 +1,8 @@
 package com.blue.hush
 
 import com.blue.hush.session.StateSample
-import com.blue.hush.ui.GalaxyMotion
-import com.blue.hush.ui.galaxyAgitation
+import com.blue.hush.ui.galaxy.GalaxyMotion
+import com.blue.hush.ui.galaxy.galaxyAgitation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

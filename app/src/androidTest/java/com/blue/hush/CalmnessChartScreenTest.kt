@@ -9,11 +9,11 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.blue.hush.session.*
-import com.blue.hush.ui.CalmnessChart
-import com.blue.hush.ui.MeditationGalaxyScreen
+import com.blue.hush.ui.charts.CalmnessChart
+import com.blue.hush.ui.screens.MeditationGalaxyScreen
 import com.blue.hush.ui.SessionDetailScreen
-import com.blue.hush.ui.ParticlePanel
-import com.blue.hush.ui.GalaxyMotion
+import com.blue.hush.ui.components.ParticlePanel
+import com.blue.hush.ui.galaxy.GalaxyMotion
 import com.blue.hush.ui.theme.HushColors
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Assert.*

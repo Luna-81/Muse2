@@ -1,5 +1,6 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-package com.blue.hush.ui
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package com.blue.hush.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,10 +15,20 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.blue.hush.session.SessionScores
 import com.blue.hush.session.SessionState
 import com.blue.hush.replay.ReplayCursor
+import com.blue.hush.ui.Page
+import com.blue.hush.ui.charts.ReplayChart
+import com.blue.hush.ui.charts.ReplayMetric
+import com.blue.hush.ui.components.HushPanel
+import com.blue.hush.ui.components.ParticlePanel
+import com.blue.hush.ui.components.PrimaryAction
+import com.blue.hush.ui.formatDuration
+import com.blue.hush.ui.galaxy.GalaxyMotion
+import com.blue.hush.ui.galaxy.galaxyAgitation
 import com.blue.hush.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -33,39 +44,69 @@ internal fun CompletionScreen(
     var replayStarted by rememberSaveable(state.sessionId) { mutableStateOf(false) }
     val sample = cursor.sampleAt(replayProgress)
     val retainedSample = remember(samples, sample) {
-        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
+        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(
+            it
+        ) != null }
     }
     Page("Finished", onBack) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val visualHeight = (maxHeight * 0.34f).coerceIn(120.dp, 440.dp)
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = HushSpace.lg),
-                verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-                item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Box(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.lg)) {
-                        if (replayStarted) ParticlePanel(sample, sample?.valid != true,
-                            maxHeight = visualHeight, animate = true, retainedSample = retainedSample)
-                        else ParticlePanel(state.latestSample, state.latestSample?.valid != true, motion, maxHeight = visualHeight)
+            LazyColumn(
+                Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = HushSpace.lg),
+                verticalArrangement = Arrangement.spacedBy(HushSpace.lg)
+            ) {
+                item {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth()
+                                .padding(horizontal = HushSpace.lg)
+                        ) {
+                            if (replayStarted) ParticlePanel(
+                                sample,
+                                sample?.valid != true,
+                                maxHeight = visualHeight,
+                                animate = true,
+                                retainedSample = retainedSample
+                            )
+                            else ParticlePanel(
+                                state.latestSample,
+                                state.latestSample?.valid != true,
+                                motion,
+                                maxHeight = visualHeight
+                            )
+                        }
                     }
-                } }
-                item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
-                    contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
-                    key(state.sessionId) {
-                        ReplayChart(samples, state.elapsedSeconds, sample, setOf(ReplayMetric.CALMNESS),
-                            onMetricChanged = { _, _ -> },
-                            onReplaySecondSelected = { second ->
-                                replayStarted = true
-                                replayProgress = cursor.progressAtSecond(second)
-                            },
-                            autoPlay = true, showMetricControls = false, scaleLabel = "Calmness")
+                }
+                item {
+                    HushPanel(
+                        Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+                        contentPadding = PaddingValues(
+                            horizontal = HushSpace.sm,
+                            vertical = HushSpace.xs
+                        )
+                    ) {
+                        key(state.sessionId) {
+                            ReplayChart(
+                                samples, state.elapsedSeconds, sample, setOf(ReplayMetric.CALMNESS),
+                                onMetricChanged = { _, _ -> },
+                                onReplaySecondSelected = { second ->
+                                    replayStarted = true
+                                    replayProgress = cursor.progressAtSecond(second)
+                                },
+                                autoPlay = true, showMetricControls = false, scaleLabel = "Calmness"
+                            )
+                        }
                     }
-                } }
-                item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.lg)) {
-                    DataCoverageSummary(samples, state.elapsedSeconds)
-                } }
-                item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    PrimaryAction("Results", onShowResults,
-                        Modifier.widthIn(max = HushSpace.contentWidth).padding(horizontal = HushSpace.lg))
-                } }
+                }
+                item {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        PrimaryAction(
+                            "Results", onShowResults,
+                            Modifier.widthIn(max = HushSpace.contentWidth)
+                                .padding(horizontal = HushSpace.lg)
+                        )
+                    }
+                }
             }
         }
     }
@@ -80,7 +121,6 @@ internal fun CompletionScreen(
                 .padding(horizontal = HushSpace.lg).padding(bottom = HushSpace.lg),
                 verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
                 SessionScoreSummary(state.elapsedSeconds, state.scores)
-                DataCoverageSummary(samples, state.elapsedSeconds)
                 TextButton(onClick = onDetails, enabled = detailAvailable, modifier = Modifier.fillMaxWidth()) {
                     Text("More Details")
                 }
@@ -105,7 +145,7 @@ internal fun SessionScoreSummary(seconds: Int, scores: SessionScores, compact: B
                     else "$label score: ${rounded?.let { "$it out of 100" } ?: "unavailable"}"
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                    Text(label, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
                     Surface(Modifier.fillMaxWidth(), shape = HushShapes.Control, color = if (compact) Color.Transparent else HushColors.SurfaceRaised) {
                         Box(Modifier.heightIn(min = if (compact) 36.dp else 56.dp).padding(if (compact) 0.dp else HushSpace.sm)
                             .semantics { contentDescription = description },
