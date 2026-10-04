@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.blue.hush.session.StateSample
 import com.blue.hush.ui.theme.HushColors
 import kotlin.math.roundToInt
+import com.blue.hush.ui.charts.ReplayMetric
 
 internal data class MetricCoverage(val measuredSeconds: Int, val totalSeconds: Int) {
     val fraction: Float get() = if (totalSeconds <= 0) 0f else measuredSeconds.toFloat() / totalSeconds

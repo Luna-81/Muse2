@@ -2,14 +2,8 @@
 package com.blue.hush.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +13,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.blue.hush.muse.MuseDeviceManager
@@ -62,13 +62,13 @@ data class ConnectionUiState(
 ) {
     val ready get() = if (simulationMode) simulationDataAvailable else connectionState == ConnectionState.CONNECTED
     val status get() = when {
-        simulationMode -> if (simulationDataAvailable) "Simulation · 10 min" else "Simulation unavailable"
+        simulationMode -> if (simulationDataAvailable) "Simulation \u00B7 10 min" else "Simulation unavailable"
         !hasBluetoothPermission -> "Bluetooth permission needed"
         !bluetoothEnabled -> "Turn on Bluetooth"
         connectionState == ConnectionState.CONNECTED -> "Muse connected"
-        connectionState == ConnectionState.CONNECTING -> "Connecting…"
+        connectionState == ConnectionState.CONNECTING -> "Connecting\u2026"
         automaticConnectionPaused -> "Connection paused"
-        isScanning -> "Searching for Muse…"
+        isScanning -> "Searching for Muse\u2026"
         else -> "Connect your Muse"
     }
 }
@@ -112,15 +112,7 @@ fun HushApp(
     var resultsSheet by rememberSaveable(sessionState.sessionId) { mutableStateOf(true) }
     val galaxyMotion = rememberGalaxyMotion()
     if (sessionState.phase in listOf(SessionPhase.RUNNING, SessionPhase.PAUSED)) {
-        MeditationGalaxyScreen(
-            sessionState,
-            onPause,
-            onResume,
-            onFinish,
-            onVolumeChanged,
-            galaxyMotion,
-            onTrackSelected
-        )
+        MeditationGalaxyScreen(sessionState, onPause, onResume, onFinish, onVolumeChanged, galaxyMotion, onTrackSelected)
         return
     }
     if (detailSummary != null) {
@@ -129,8 +121,7 @@ fun HushApp(
     }
     if (sessionState.phase == SessionPhase.FINISHED) {
         val summary = history.firstOrNull { it.id == sessionState.sessionId }
-        CompletionScreen(
-            sessionState, galaxyMotion, resultsSheet,
+        CompletionScreen(sessionState, galaxyMotion, resultsSheet,
             onShowResults = { resultsSheet = true }, onDismissResults = { resultsSheet = false },
             onBack = onStartNewSession, detailAvailable = summary != null,
             onDetails = { summary?.let { resultsSheet = false; onOpenDetail(it) } })
@@ -147,28 +138,18 @@ fun HushApp(
                 LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(horizontal = HushSpace.lg, vertical = HushSpace.sm), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                     item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Hush", style = MaterialTheme.typography.headlineLarge)
-                        MusicButton(selectedTrack.title, onClick = { musicSheet = true })
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ChartHelpButton()
+                            MusicButton(selectedTrack.title, onClick = { musicSheet = true })
+                        }
                     } }
-                    item {
-                        GalaxyParticleField(
-                            null, dataGap = false, paused = false,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp)
-                                .aspectRatio(1f), state = galaxyMotion, preview = true
-                        )
-                    }
+                    item { GalaxyParticleField(null, dataGap = false, paused = false,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 440.dp).aspectRatio(1f), state = galaxyMotion, preview = true) }
                     item { Text("A moment of stillness", style = MaterialTheme.typography.titleMedium) }
-                    item {
-                        SessionPreparationPanel(
-                            selectedDurationSeconds,
-                            connectionState,
-                            onDurationSelected,
-                            onDeviceSelected = { deviceSheet = true },
-                            onStart = {
-                                if (connectionState.ready) onStartSession() else {
-                                    deviceSheet = true; onStartScanning()
-                                }
-                            })
-                    }
+                    item { SessionPreparationPanel(selectedDurationSeconds, connectionState,
+                        onDurationSelected, onDeviceSelected = { deviceSheet = true }, onStart = {
+                            if (connectionState.ready) onStartSession() else { deviceSheet = true; onStartScanning() }
+                        }) }
                 }
             } else HistoryScreen(history, onOpenDetail, onDeleteSession)
         }
@@ -178,12 +159,7 @@ fun HushApp(
             item { Text("Your Muse", style = MaterialTheme.typography.headlineMedium); Text(connectionState.status, color = HushColors.Muted) }
             connectionState.errorMessage?.let { message -> item { Text(message, color = HushColors.Error) } }
             if (!connectionState.simulationMode) {
-                if (!connectionState.ready) item {
-                    PrimaryAction(
-                        if (connectionState.hasBluetoothPermission) "Connect Muse" else "Allow Bluetooth",
-                        onStartScanning
-                    )
-                }
+                if (!connectionState.ready) item { PrimaryAction(if (connectionState.hasBluetoothPermission) "Connect Muse" else "Allow Bluetooth", onStartScanning) }
                 items(connectionState.devices, key = { it.macAddress }) { device ->
                     OutlinedButton(onClick = { onConnect(device) }, enabled = connectionState.connectionState != ConnectionState.CONNECTING && connectionState.connectedDeviceAddress != device.macAddress, modifier = Modifier.fillMaxWidth()) {
                         Column { Text(device.name.ifBlank { "Muse 2" }); Text(device.macAddress.takeLast(5), style = MaterialTheme.typography.bodySmall) }
@@ -193,7 +169,7 @@ fun HushApp(
             }
             item { HorizontalDivider(color = HushColors.Border) }
             item { Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Try a simulation"); Text("Saved session · 10 min", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted) }
+                Column(Modifier.weight(1f)) { Text("Try a simulation"); Text("Saved session \u00B7 10 min", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted) }
                 Switch(modifier = Modifier.semantics { contentDescription = "Use saved simulation data" }, checked = connectionState.simulationMode, onCheckedChange = onSimulationModeChanged, enabled = connectionState.simulationDataAvailable)
             } }
         }
@@ -221,23 +197,14 @@ internal fun SoundscapeSheet(
                 Slider(value = volume, onValueChange = onVolumeChanged,
                     modifier = Modifier.semantics { contentDescription = "Meditation volume" })
             }
-            items(MusicTrack.soundscapes, key = { it.name }) { track ->
-                HushPanel(Modifier.fillMaxWidth()) {
-                    Text(track.title, style = MaterialTheme.typography.titleLarge)
-                    Text(track.subtitle, color = HushColors.Muted)
-                    Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                        FilterChip(
-                            selected = selectedTrack == track,
-                            onClick = { onTrackSelected(track) },
-                            label = { Text(if (selectedTrack == track) "Selected" else "Select") })
-                        if (onPreviewTrack != null) TextButton(onClick = { onPreviewTrack(track) }) {
-                            Text(
-                                if (previewTrack == track) "Stop preview" else "Preview"
-                            )
-                        }
-                    }
+            items(MusicTrack.soundscapes, key = { it.name }) { track -> HushPanel(Modifier.fillMaxWidth()) {
+                Text(track.title, style = MaterialTheme.typography.titleLarge)
+                Text(track.subtitle, color = HushColors.Muted)
+                Row(horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
+                    FilterChip(selected = selectedTrack == track, onClick = { onTrackSelected(track) }, label = { Text(if (selectedTrack == track) "Selected" else "Select") })
+                    if (onPreviewTrack != null) TextButton(onClick = { onPreviewTrack(track) }) { Text(if (previewTrack == track) "Stop preview" else "Preview") }
                 }
-            }
+            } }
         }
     }
 }
@@ -260,15 +227,12 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
         )
     }
     LazyColumn(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxSize(), contentPadding = PaddingValues(HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.lg)) {
-        item { Text("History", style = MaterialTheme.typography.headlineLarge) }
-        if (history.isEmpty()) item {
-            HushPanel(Modifier.fillMaxWidth()) {
-                Text("Your quiet moments, collected."); Text(
-                "Complete a session to see it here.",
-                color = HushColors.Muted
-            )
-            }
-        }
+        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("History", style = MaterialTheme.typography.headlineLarge)
+            ChartHelpButton()
+        } }
+        if (history.isEmpty()) item { HushPanel(Modifier.fillMaxWidth()) { Text("Your quiet moments, collected."); Text("Complete a session to see it here.", color = HushColors.Muted) } }
         items(history, key = { it.id }) { summary ->
             val dismissState = rememberSwipeToDismissBoxState(positionalThreshold = { it * 0.4f })
             LaunchedEffect(dismissState.settledValue) {
@@ -300,15 +264,15 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
                     }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                         MindprintThumbnail(summary.id, Modifier.size(56.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                            Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)}", style = MaterialTheme.typography.titleMedium)
-                            Text("${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
+                            Text("${formatDate(summary.startedAt)} \u00B7 ${formatTime(summary.startedAt)}", style = MaterialTheme.typography.titleMedium)
+                            Text("${formatDuration(summary.actualSeconds)} \u00B7 ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
                             Text(if (summary.resultSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
                         }
                         Column(Modifier.widthIn(min = 40.dp).semantics {
                             contentDescription = "Calm score: ${summary.calm?.roundToInt()?.let { "$it out of 100" } ?: "unavailable"}"
                         }, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
                             Text("Calm", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
-                            Text(summary.calm?.roundToInt()?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall, color = HushColors.Lavender)
+                            Text(summary.calm?.roundToInt()?.toString() ?: "\u2014", style = MaterialTheme.typography.headlineSmall, color = HushColors.Lavender)
                         }
                     }
                 }
@@ -316,6 +280,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
         }
     }
 }
+
 @Composable
 internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
     var visibleMask by rememberSaveable(summary.id) { mutableStateOf((1 shl ReplayMetric.entries.size) - 1) }
@@ -324,15 +289,13 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
     val scores = remember(samples) { SessionScoreCalculator.calculate(samples) }
     val sample = cursor.sampleAt(progress)
     val retainedSample = remember(samples, sample) {
-        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(
-            it
-        ) != null }
+        samples.lastOrNull { it.elapsedSeconds <= (sample?.elapsedSeconds ?: 0) && galaxyAgitation(it) != null }
     }
     Page("Session details", onBack) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = HushSpace.xs, bottom = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                    Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
+                    Text("${formatDate(summary.startedAt)} \u00B7 ${formatTime(summary.startedAt)} \u00B7 ${formatDuration(summary.actualSeconds)}",
                         modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
                     HushPanel(Modifier.fillMaxWidth()) {
@@ -342,45 +305,31 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
             } }
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl)) {
-                    ParticlePanel(
-                        sample,
-                        sample?.valid != true,
-                        animate = true,
-                        retainedSample = retainedSample
-                    )
+                    ParticlePanel(sample, sample?.valid != true, animate = true, retainedSample = retainedSample)
                 }
             } }
-            item {
-                HushPanel(
-                    Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
-                    contentPadding = PaddingValues(
-                        horizontal = HushSpace.sm,
-                        vertical = HushSpace.xs
-                    )
-                ) {
-                    key(summary.id) {
-                        ReplayChart(
-                            samples, summary.actualSeconds, sample, visibleMetrics,
-                            onMetricChanged = { metric, checked ->
-                                val bit = 1 shl metric.ordinal
-                                visibleMask =
-                                    if (checked) visibleMask or bit else visibleMask and bit.inv()
-                            },
-                            onReplaySecondSelected = { second ->
-                                onProgress(
-                                    cursor.progressAtSecond(
-                                        second
-                                    )
-                                )
-                            },
-                            autoPlay = true
-                        )
-                    }
+            item { HushPanel(Modifier.fillMaxWidth().padding(horizontal = HushSpace.xs),
+                contentPadding = PaddingValues(horizontal = HushSpace.sm, vertical = HushSpace.xs)) {
+                key(summary.id) {
+                    ReplayChart(samples, summary.actualSeconds, sample, visibleMetrics,
+                        onMetricChanged = { metric, checked ->
+                            val bit = 1 shl metric.ordinal
+                            visibleMask = if (checked) visibleMask or bit else visibleMask and bit.inv()
+                        },
+                        onReplaySecondSelected = { second -> onProgress(cursor.progressAtSecond(second)) },
+                        autoPlay = true)
                 }
-            }
+            } }
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                HushPanel(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth()
+                    .padding(horizontal = HushSpace.xl)) {
+                    DataCoverageSummary(samples, summary.actualSeconds)
+                }
+            } }
         }
     }
 }
+
 internal fun formatDuration(seconds: Int): String = String.format(Locale.US, "%02d:%02d", seconds.coerceAtLeast(0) / 60, seconds.coerceAtLeast(0) % 60)
 private fun formatDate(timestamp: Long): String = SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).format(Date(timestamp))
 private fun formatTime(timestamp: Long): String = SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(timestamp))
