@@ -2,14 +2,8 @@
 package com.blue.hush.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,12 +13,33 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.blue.hush.muse.MuseDeviceManager
 import com.blue.hush.processing.SessionScoreCalculator
 import com.blue.hush.replay.ReplayCursor
 import com.blue.hush.session.*
+import com.blue.hush.ui.charts.ReplayChart
+import com.blue.hush.ui.charts.ReplayMetric
+import com.blue.hush.ui.components.HushNavIcon
+import com.blue.hush.ui.components.HushPanel
+import com.blue.hush.ui.components.MindprintThumbnail
+import com.blue.hush.ui.components.ParticlePanel
+import com.blue.hush.ui.components.PrimaryAction
+import com.blue.hush.ui.galaxy.GalaxyParticleField
+import com.blue.hush.ui.galaxy.galaxyAgitation
+import com.blue.hush.ui.galaxy.rememberGalaxyMotion
+import com.blue.hush.ui.screens.CompletionScreen
+import com.blue.hush.ui.screens.MeditationGalaxyScreen
+import com.blue.hush.ui.screens.MusicButton
+import com.blue.hush.ui.screens.SessionPreparationPanel
+import com.blue.hush.ui.screens.SessionScoreSummary
 import com.blue.hush.ui.theme.*
 import com.choosemuse.libmuse.ConnectionState
 import java.text.SimpleDateFormat
@@ -47,13 +62,13 @@ data class ConnectionUiState(
 ) {
     val ready get() = if (simulationMode) simulationDataAvailable else connectionState == ConnectionState.CONNECTED
     val status get() = when {
-        simulationMode -> if (simulationDataAvailable) "Simulation · 10 min" else "Simulation unavailable"
+        simulationMode -> if (simulationDataAvailable) "Simulation \u00B7 10 min" else "Simulation unavailable"
         !hasBluetoothPermission -> "Bluetooth permission needed"
         !bluetoothEnabled -> "Turn on Bluetooth"
         connectionState == ConnectionState.CONNECTED -> "Muse connected"
-        connectionState == ConnectionState.CONNECTING -> "Connecting…"
+        connectionState == ConnectionState.CONNECTING -> "Connecting\u2026"
         automaticConnectionPaused -> "Connection paused"
-        isScanning -> "Searching for Muse…"
+        isScanning -> "Searching for Muse\u2026"
         else -> "Connect your Muse"
     }
 }
@@ -154,7 +169,7 @@ fun HushApp(
             }
             item { HorizontalDivider(color = HushColors.Border) }
             item { Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Try a simulation"); Text("Saved session · 10 min", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted) }
+                Column(Modifier.weight(1f)) { Text("Try a simulation"); Text("Saved session \u00B7 10 min", style = MaterialTheme.typography.bodySmall, color = HushColors.Muted) }
                 Switch(modifier = Modifier.semantics { contentDescription = "Use saved simulation data" }, checked = connectionState.simulationMode, onCheckedChange = onSimulationModeChanged, enabled = connectionState.simulationDataAvailable)
             } }
         }
@@ -249,15 +264,15 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
                     }.padding(HushSpace.lg), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
                         MindprintThumbnail(summary.id, Modifier.size(56.dp))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
-                            Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)}", style = MaterialTheme.typography.titleMedium)
-                            Text("${formatDuration(summary.actualSeconds)} · ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
+                            Text("${formatDate(summary.startedAt)} \u00B7 ${formatTime(summary.startedAt)}", style = MaterialTheme.typography.titleMedium)
+                            Text("${formatDuration(summary.actualSeconds)} \u00B7 ${summary.track.title}", color = HushColors.Muted, style = MaterialTheme.typography.bodySmall)
                             Text(if (summary.resultSampleCount >= 2) summary.result.title else "Not enough signal", style = MaterialTheme.typography.labelSmall)
                         }
                         Column(Modifier.widthIn(min = 40.dp).semantics {
                             contentDescription = "Calm score: ${summary.calm?.roundToInt()?.let { "$it out of 100" } ?: "unavailable"}"
                         }, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(HushSpace.xs)) {
                             Text("Calm", style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
-                            Text(summary.calm?.roundToInt()?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall, color = HushColors.Lavender)
+                            Text(summary.calm?.roundToInt()?.toString() ?: "\u2014", style = MaterialTheme.typography.headlineSmall, color = HushColors.Lavender)
                         }
                     }
                 }
@@ -265,6 +280,7 @@ internal fun HistoryScreen(history: List<SessionSummary>, onOpen: (SessionSummar
         }
     }
 }
+
 @Composable
 internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSample>, progress: Float, onBack: () -> Unit, onProgress: (Float) -> Unit) {
     var visibleMask by rememberSaveable(summary.id) { mutableStateOf((1 shl ReplayMetric.entries.size) - 1) }
@@ -279,7 +295,7 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = HushSpace.xs, bottom = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.xl)) {
             item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(Modifier.widthIn(max = HushSpace.contentWidth).fillMaxWidth().padding(horizontal = HushSpace.xl), verticalArrangement = Arrangement.spacedBy(HushSpace.sm)) {
-                    Text("${formatDate(summary.startedAt)} · ${formatTime(summary.startedAt)} · ${formatDuration(summary.actualSeconds)}",
+                    Text("${formatDate(summary.startedAt)} \u00B7 ${formatTime(summary.startedAt)} \u00B7 ${formatDuration(summary.actualSeconds)}",
                         modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.labelSmall, color = HushColors.Muted)
                     HushPanel(Modifier.fillMaxWidth()) {
@@ -313,6 +329,7 @@ internal fun SessionDetailScreen(summary: SessionSummary, samples: List<StateSam
         }
     }
 }
+
 internal fun formatDuration(seconds: Int): String = String.format(Locale.US, "%02d:%02d", seconds.coerceAtLeast(0) / 60, seconds.coerceAtLeast(0) % 60)
 private fun formatDate(timestamp: Long): String = SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH).format(Date(timestamp))
 private fun formatTime(timestamp: Long): String = SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(timestamp))

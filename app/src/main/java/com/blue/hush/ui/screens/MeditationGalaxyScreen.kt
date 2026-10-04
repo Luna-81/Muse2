@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.screens
 
 import android.app.Activity
 import android.content.Context
@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalDensity
@@ -48,12 +50,20 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.MusicTrack
+import com.blue.hush.ui.SoundscapeSheet
+import com.blue.hush.ui.charts.CalmnessChart
+import com.blue.hush.ui.formatDuration
+import com.blue.hush.ui.galaxy.GalaxyMotion
+import com.blue.hush.ui.galaxy.GalaxyParticleField
+import com.blue.hush.ui.galaxy.galaxyAgitation
+import com.blue.hush.ui.galaxy.rememberGalaxyMotion
 
 @Composable
 internal fun MeditationGalaxyScreen(
@@ -79,7 +89,7 @@ internal fun MeditationGalaxyScreen(
         val window = view.context.activity()?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         val previousBehavior = controller?.systemBarsBehavior
-        val insets = androidx.core.view.ViewCompat.getRootWindowInsets(view)
+        val insets = ViewCompat.getRootWindowInsets(view)
         val statusVisible = insets?.isVisible(WindowInsetsCompat.Type.statusBars()) ?: true
         val navigationVisible = insets?.isVisible(WindowInsetsCompat.Type.navigationBars()) ?: true
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -105,8 +115,10 @@ internal fun MeditationGalaxyScreen(
         // Reserve the measured control area so the added chart does not cover portrait particles.
         val galaxyModifier = if (landscape) Modifier.fillMaxHeight().fillMaxWidth(0.58f).align(Alignment.CenterStart)
             else Modifier.fillMaxWidth().height((maxHeight - controlsHeight).coerceAtLeast(76.dp)).padding(top = 76.dp).align(Alignment.TopCenter)
-        GalaxyParticleField(state.latestSample, signalMissing, paused || !state.connected,
-            galaxyModifier, state = galaxyMotion, continueWhenMissing = state.connected)
+        GalaxyParticleField(
+            state.latestSample, signalMissing, paused || !state.connected,
+            galaxyModifier, state = galaxyMotion, continueWhenMissing = state.connected
+        )
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(horizontal = HushSpace.xl, vertical = HushSpace.md)) {
             Row(
                 Modifier.fillMaxWidth(),
@@ -146,23 +158,25 @@ internal fun MeditationGalaxyScreen(
                     shape = CircleShape,
                     border = BorderStroke(1.dp, HushColors.Lavender.copy(alpha = 0.55f)),
                     modifier = Modifier.padding(top = HushSpace.sm).size(56.dp).semantics { contentDescription = if (paused) "Resume" else "Pause" },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                    contentPadding = PaddingValues(0.dp),
                 ) {
                     Canvas(Modifier.size(24.dp)) {
                         if (paused) {
                             val path = Path().apply { moveTo(5f, 0f); lineTo(size.width, size.height / 2); lineTo(5f, size.height); close() }
                             drawPath(path, HushColors.Text)
                         } else {
-                            drawRect(HushColors.Text, size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
-                            drawRect(HushColors.Text, topLeft = Offset(size.width * 0.75f, 0f), size = androidx.compose.ui.geometry.Size(size.width * 0.25f, size.height))
+                            drawRect(HushColors.Text, size = Size(size.width * 0.25f, size.height))
+                            drawRect(HushColors.Text, topLeft = Offset(size.width * 0.75f, 0f), size = Size(size.width * 0.25f, size.height))
                         }
                     }
                 }
                 TextButton(onClick = { confirmFinish = true }) { Text("Finish") }
             }
     }
-    if (musicSheet) SoundscapeSheet(state.track, onTrackSelected, onDismiss = { musicSheet = false },
-        volume = state.volume, onVolumeChanged = onVolumeChanged)
+    if (musicSheet) SoundscapeSheet(
+        state.track, onTrackSelected, onDismiss = { musicSheet = false },
+        volume = state.volume, onVolumeChanged = onVolumeChanged
+    )
 }
 
 private tailrec fun Context.activity(): Activity? = when (this) {

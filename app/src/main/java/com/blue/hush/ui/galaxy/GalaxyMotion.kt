@@ -1,6 +1,7 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.galaxy
 
 import com.blue.hush.session.StateSample
+import com.blue.hush.ui.charts.chartCalmness
 import kotlin.math.exp
 
 // Blend linear and quadratic response to retain visible changes near calm.

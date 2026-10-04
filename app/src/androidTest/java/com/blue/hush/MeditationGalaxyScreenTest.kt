@@ -19,7 +19,7 @@ import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.StateSample
 import com.blue.hush.session.MusicTrack
-import com.blue.hush.ui.MeditationGalaxyScreen
+import com.blue.hush.ui.screens.MeditationGalaxyScreen
 import com.blue.hush.ui.theme.HushTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule

@@ -1,4 +1,4 @@
-package com.blue.hush.ui
+package com.blue.hush.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -22,6 +22,7 @@ import com.blue.hush.session.SessionDuration
 import com.blue.hush.ui.theme.*
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -79,7 +80,7 @@ internal fun DurationSelector(seconds: Int, simulationMode: Boolean, onSelected:
                 }) {
                 items(SessionDuration.MAX_MINUTES - SessionDuration.MIN_MINUTES + 1, key = { it }) { index ->
                     Box(Modifier.fillMaxWidth().height(rowHeight).padding(end = 20.dp), contentAlignment = Alignment.CenterStart) {
-                        Text(String.format(java.util.Locale.US, "%02d:00", index + SessionDuration.MIN_MINUTES),
+                        Text(String.format(Locale.US, "%02d:00", index + SessionDuration.MIN_MINUTES),
                             style = timeStyle, color = wheelColor)
                     }
                 }

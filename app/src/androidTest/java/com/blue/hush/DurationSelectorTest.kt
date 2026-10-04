@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.blue.hush.ui.*
+import com.blue.hush.ui.screens.MusicButton
+import com.blue.hush.ui.screens.SessionPreparationPanel
 import com.blue.hush.ui.theme.*
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -41,9 +43,15 @@ class DurationSelectorTest {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                             MusicButton("Rain") { musicOpens++ }
                         }
-                        SessionPreparationPanel(seconds, ConnectionUiState(simulationMode = simulation, simulationDataAvailable = true),
+                        SessionPreparationPanel(
+                            seconds,
+                            ConnectionUiState(
+                                simulationMode = simulation,
+                                simulationDataAvailable = true
+                            ),
                             onDurationSelected = { seconds = it; selectedSeconds = it },
-                            onDeviceSelected = { deviceOpens++ }, onStart = { starts++ })
+                            onDeviceSelected = { deviceOpens++ },
+                            onStart = { starts++ })
                     }
                 }
             }
