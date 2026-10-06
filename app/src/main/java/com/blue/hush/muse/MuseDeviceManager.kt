@@ -3,9 +3,8 @@ package com.blue.hush.muse
 import android.content.Context
 import android.os.SystemClock
 import com.choosemuse.libmuse.Accelerometer
-import com.choosemuse.libmuse.Eeg
-import com.choosemuse.libmuse.Ppg
 import com.choosemuse.libmuse.ConnectionState
+import com.choosemuse.libmuse.Eeg
 import com.choosemuse.libmuse.Muse
 import com.choosemuse.libmuse.MuseArtifactPacket
 import com.choosemuse.libmuse.MuseConnectionListener
@@ -16,13 +15,8 @@ import com.choosemuse.libmuse.MuseDataPacketType
 import com.choosemuse.libmuse.MuseListener
 import com.choosemuse.libmuse.MuseManagerAndroid
 import com.choosemuse.libmuse.MusePreset
+import com.choosemuse.libmuse.Ppg
 
-/**
- * Small application-facing adapter around LibMuse's Android manager.
- *
- * LibMuse invokes callbacks from its own worker threads. Consumers should move
- * callbacks to the UI thread when updating Compose state or views.
- */
 class MuseDeviceManager(
     context: Context,
     private val listener: Listener,
@@ -38,7 +32,6 @@ class MuseDeviceManager(
         )
 
         fun onDataPacket(packet: MusePacket)
-
     }
 
     data class MuseDevice(
@@ -56,56 +49,21 @@ class MuseDeviceManager(
     private val manager = MuseManagerAndroid.getInstance()
     private var connectedMuse: Muse? = null
 
-    private val museListener = object : MuseListener() {
-        override fun museListChanged() {
-            publishDevices()
-        }
-    }
-
-    private val connectionListener = object : MuseConnectionListener() {
-        override fun receiveMuseConnectionPacket(packet: MuseConnectionPacket, muse: Muse) {
-            val device = deviceFor(muse)
-            listener.onConnectionStateChanged(
-                device = device,
-                previous = packet.getPreviousConnectionState(),
-                current = packet.getCurrentConnectionState(),
-            )
-            if (packet.getCurrentConnectionState() == ConnectionState.DISCONNECTED &&
-                connectedMuse?.getMacAddress() == muse.getMacAddress()
-            ) {
-                connectedMuse = null
-            }
-        }
-    }
-
-    private val dataListener = object : MuseDataListener() {
-        override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
-            listener.onDataPacket(
-                MusePacket(
-                    type = packet.packetType(),
-                    values = when (packet.packetType()) {
-                        MuseDataPacketType.EEG,
-                        MuseDataPacketType.ALPHA_RELATIVE,
-                        MuseDataPacketType.THETA_RELATIVE,
-                        MuseDataPacketType.BETA_RELATIVE,
-                        MuseDataPacketType.HSI_PRECISION -> listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4).map(packet::getEegChannelValue)
-                        MuseDataPacketType.ACCELEROMETER -> listOf(Accelerometer.X, Accelerometer.Y, Accelerometer.Z).map(packet::getAccelerometerValue)
-                        MuseDataPacketType.PPG -> listOf(Ppg.IR, Ppg.RED).map(packet::getPpgChannelValue)
-                        else -> packet.values().map { it.toDouble() }
-                    },
-                    receivedAtMillis = SystemClock.elapsedRealtime(),
-                ),
-            )
-        }
-
-        override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) = Unit
-    }
+    private val museListener = DeviceListBridge()
+    private val connectionListener = ConnectionBridge()
+    private val dataListener = DataBridge()
 
     init {
         // LibMuse requires the context to be set before any other SDK operation.
         manager.setContext(context.applicationContext)
         manager.setMuseListener(museListener)
     }
+
+    override fun close() {
+        disconnect()
+        stopScanning()
+    }
+
 
     fun startScanning() {
         manager.stopListening()
@@ -127,14 +85,13 @@ class MuseDeviceManager(
         DATA_PACKET_TYPES.forEach { type ->
             muse.registerDataListener(dataListener, type)
         }
-        // Muse 2's p50 preset enables the sensor streams used by the app.
-        // The p21 EEG-only preset can connect successfully without emitting
-        // the derived bands needed to produce a valid meditation sample.
+
         muse.setPreset(MusePreset.PRESET_50)
+
         connectedMuse = muse
+
         val currentState = muse.getConnectionState()
         if (currentState == ConnectionState.CONNECTED) {
-            // Reuse an already-running native instance without restarting it.
             listener.onConnectionStateChanged(device, currentState, currentState)
         } else {
             muse.runAsynchronously()
@@ -146,11 +103,6 @@ class MuseDeviceManager(
         connectedMuse = null
     }
 
-    override fun close() {
-        disconnect()
-        stopScanning()
-    }
-
     private fun publishDevices() {
         listener.onDevicesChanged(manager.getMuses().map(::deviceFor))
     }
@@ -160,6 +112,67 @@ class MuseDeviceManager(
         name = muse.getName(),
         macAddress = muse.getMacAddress(),
     )
+
+    private inner class DeviceListBridge : MuseListener() {
+        override fun museListChanged() {
+            publishDevices()
+        }
+    }
+
+    private inner class ConnectionBridge : MuseConnectionListener() {
+        override fun receiveMuseConnectionPacket(packet: MuseConnectionPacket, muse: Muse) {
+            val current = packet.getCurrentConnectionState()
+
+            listener.onConnectionStateChanged(
+                device = deviceFor(muse),
+                previous = packet.getPreviousConnectionState(),
+                current = current,
+            )
+
+            if (current == ConnectionState.DISCONNECTED &&
+                connectedMuse?.getMacAddress() == muse.getMacAddress()
+            ) {
+                connectedMuse = null
+            }
+        }
+    }
+
+    private inner class DataBridge : MuseDataListener() {
+        override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
+            listener.onDataPacket(
+                MusePacket(
+                    type = packet.packetType(),
+                    values = translateValues(packet),
+                    receivedAtMillis = SystemClock.elapsedRealtime(),
+                ),
+            )
+        }
+
+        override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) = Unit
+
+        private fun translateValues(packet: MuseDataPacket): List<Double> =
+            when (packet.packetType()) {
+                MuseDataPacketType.EEG,
+                MuseDataPacketType.ALPHA_RELATIVE,
+                MuseDataPacketType.THETA_RELATIVE,
+                MuseDataPacketType.BETA_RELATIVE,
+                MuseDataPacketType.HSI_PRECISION ->
+                    listOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4)
+                        .map(packet::getEegChannelValue)
+
+                MuseDataPacketType.ACCELEROMETER ->
+                    listOf(Accelerometer.X, Accelerometer.Y, Accelerometer.Z)
+                        .map(packet::getAccelerometerValue)
+
+                MuseDataPacketType.PPG ->
+                    listOf(Ppg.IR, Ppg.RED)
+                        .map(packet::getPpgChannelValue)
+
+                else ->
+                    packet.values().map { it.toDouble() }
+            }
+    }
+
 
     private companion object {
         val DATA_PACKET_TYPES = listOf(

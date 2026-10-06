@@ -6,7 +6,7 @@ import android.os.Looper
 import com.choosemuse.libmuse.ConnectionState
 import java.util.concurrent.CopyOnWriteArraySet
 
-/** Keeps the native connection alive independently of screens and session lifetime. */
+
 object MuseConnectionRuntime : MuseDeviceManager.Listener {
     private val listeners = CopyOnWriteArraySet<MuseDeviceManager.Listener>()
     private val handler = Handler(Looper.getMainLooper())
@@ -14,7 +14,9 @@ object MuseConnectionRuntime : MuseDeviceManager.Listener {
     @Volatile private var generation = 0
     @Volatile private var devices: List<MuseDeviceManager.MuseDevice> = emptyList()
     @Volatile private var connectedDevice: MuseDeviceManager.MuseDevice? = null
-    @Volatile var connectionState: ConnectionState = ConnectionState.DISCONNECTED
+
+    @Volatile
+    var connectionState: ConnectionState = ConnectionState.DISCONNECTED
         private set
 
     val device: MuseDeviceManager.MuseDevice? get() = connectedDevice
@@ -22,9 +24,12 @@ object MuseConnectionRuntime : MuseDeviceManager.Listener {
     fun attach(context: Context, listener: MuseDeviceManager.Listener): MuseDeviceManager {
         val shared = manager ?: createManager(context).also { manager = it }
         listeners += listener
-        // Restore connection state first so discovery consumers do not reconnect it.
-        connectedDevice?.let { listener.onConnectionStateChanged(it, connectionState, connectionState) }
+
+        connectedDevice?.let {
+            listener.onConnectionStateChanged(it, connectionState, connectionState)
+        }
         listener.onDevicesChanged(devices)
+
         return shared
     }
 
@@ -43,27 +48,38 @@ object MuseConnectionRuntime : MuseDeviceManager.Listener {
 
     private fun createManager(context: Context): MuseDeviceManager {
         val ownerGeneration = ++generation
-        return MuseDeviceManager(context.applicationContext, object : MuseDeviceManager.Listener {
-            override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {
-                handler.post {
-                    if (ownerGeneration == generation) this@MuseConnectionRuntime.onDevicesChanged(devices)
+        return MuseDeviceManager(context.applicationContext, ManagerBridge(ownerGeneration))
+    }
+
+    private class ManagerBridge(
+        private val ownerGeneration: Int,
+    ) : MuseDeviceManager.Listener {
+
+        override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {
+            handler.post {
+                if (ownerGeneration == generation) {
+                    this@MuseConnectionRuntime.onDevicesChanged(devices)
                 }
             }
+        }
 
-            override fun onConnectionStateChanged(
-                device: MuseDeviceManager.MuseDevice,
-                previous: ConnectionState,
-                current: ConnectionState,
-            ) {
-                handler.post {
-                    if (ownerGeneration == generation) this@MuseConnectionRuntime.onConnectionStateChanged(device, previous, current)
+        override fun onConnectionStateChanged(
+            device: MuseDeviceManager.MuseDevice,
+            previous: ConnectionState,
+            current: ConnectionState,
+        ) {
+            handler.post {
+                if (ownerGeneration == generation) {
+                    this@MuseConnectionRuntime.onConnectionStateChanged(device, previous, current)
                 }
             }
+        }
 
-            override fun onDataPacket(packet: MuseDeviceManager.MusePacket) {
-                if (ownerGeneration == generation) this@MuseConnectionRuntime.onDataPacket(packet)
+        override fun onDataPacket(packet: MuseDeviceManager.MusePacket) {
+            if (ownerGeneration == generation) {
+                this@MuseConnectionRuntime.onDataPacket(packet)
             }
-        })
+        }
     }
 
     override fun onDevicesChanged(devices: List<MuseDeviceManager.MuseDevice>) {

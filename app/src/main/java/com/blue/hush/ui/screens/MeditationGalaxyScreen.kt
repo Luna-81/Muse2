@@ -57,7 +57,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionState
 import com.blue.hush.session.MusicTrack
-import com.blue.hush.ui.SoundscapeSheet
+import com.blue.hush.ui.components.SoundscapeSheet
 import com.blue.hush.ui.charts.CalmnessChart
 import com.blue.hush.ui.formatDuration
 import com.blue.hush.ui.galaxy.GalaxyMotion
