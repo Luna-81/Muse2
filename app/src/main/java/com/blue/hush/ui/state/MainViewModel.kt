@@ -6,7 +6,9 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.blue.hush.audio.PreviewController
 import com.blue.hush.muse.BluetoothCoordinator
@@ -16,11 +18,11 @@ import com.blue.hush.session.MusicTrack
 import com.blue.hush.session.SessionCoordinator
 import com.blue.hush.session.SessionPhase
 import com.blue.hush.session.SessionRuntime
+import com.blue.hush.session.SessionState
 import com.blue.hush.session.SessionSummary
 import com.blue.hush.storage.SessionRepository
 import com.blue.hush.ui.AppTab
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     var uiState by mutableStateOf(MainUiState())
@@ -59,29 +61,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         repository.restoreBundledHistoryOnce(appContext)
-
         bluetooth.updatePrerequisites(
             hasPermission = { permissions.hasBluetoothPermission() },
             bluetoothEnabled = { bluetoothEnabled() },
         )
-
-        removeSessionListener = SessionRuntime.subscribe { state ->
-            mainHandler.post {
-                uiState = uiState.copy(sessionState = state)
-                session.onSessionStateChanged(state.phase)
-
-                if (state.phase == SessionPhase.IDLE && state.message != null) {
-                    uiState = uiState.copy(
-                        connectionState = uiState.connectionState.copy(errorMessage = state.message),
-                    )
-                }
-                if (state.phase == SessionPhase.FINISHED) {
-                    refreshHistory()
-                }
-                bluetooth.refresh()
-            }
-        }
-
+        subscribeToSessionRuntime()
         refreshSimulationData()
         refreshHistory()
     }
@@ -117,7 +101,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         uiState = uiState.copy(
             connectionState = uiState.connectionState.copy(
                 simulationMode = enabled,
-                simulationDataAvailable = uiState.simulationDataAvailable,
                 errorMessage = null,
             ),
             selectedDurationSeconds = if (enabled) MuseReplaySource.DURATION_SECONDS
@@ -225,6 +208,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    override fun onCleared() {
+        removeSessionListener?.invoke()
+        mainHandler.removeCallbacksAndMessages(null)
+        preview.stop()
+        bluetooth.shutdown()
+        repository.close()
+        super.onCleared()
+    }
+
+
+    private fun subscribeToSessionRuntime() {
+        removeSessionListener = SessionRuntime.subscribe { state ->
+            mainHandler.post { handleSessionState(state) }
+        }
+    }
+
+    private fun handleSessionState(state: SessionState) {
+        uiState = uiState.copy(sessionState = state)
+        session.onSessionStateChanged(state.phase)
+
+        if (state.phase == SessionPhase.IDLE && state.message != null) {
+            uiState = uiState.copy(
+                connectionState = uiState.connectionState.copy(errorMessage = state.message),
+            )
+        }
+        if (state.phase == SessionPhase.FINISHED) {
+            refreshHistory()
+        }
+        bluetooth.refresh()
+    }
+
+
     private fun refreshHistory() {
         repository.loadHistory { summaries ->
             uiState = uiState.copy(history = summaries)
@@ -239,14 +254,5 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         refreshHistory()
-    }
-
-    override fun onCleared() {
-        removeSessionListener?.invoke()
-        mainHandler.removeCallbacksAndMessages(null)
-        preview.stop()
-        bluetooth.shutdown()
-        repository.close()
-        super.onCleared()
     }
 }
